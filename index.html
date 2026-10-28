@@ -89,7 +89,7 @@ function parseOne(rawText){
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   let geometry;
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNn]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEe]/);
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/);
   
   if(circM){
     const rVal=parseFloat(circM[1].replace(',','.'));
@@ -106,7 +106,7 @@ function parseOne(rawText){
     }
     geometry={kind:'circle',pts,radiusM,cLat,cLon};
   }else{
-    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNn]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEe]/g;
+    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/g;
     const pts=[];let m;
     while((m=re.exec(t))!==null){
       const lat=parseCoord(m[1]);const lon=parseCoord(m[2]);
@@ -122,7 +122,7 @@ function parseOne(rawText){
   
   const notes=[];
   if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
-  if(/ИСКЛЮЧАЯ\s+ОСТРОВА/i.test(sec1))notes.push('исключение островов не смоделировано');
+  if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
   if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
   if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
   
@@ -190,17 +190,27 @@ parseBtn.onclick=()=>{
   let text=input.value.trim();
   if(!text)return;
   
-  // Предварительная обработка текста
-  text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2'); // Пробел перед 1. и 2. (КИЛЬДИН1. -> КИЛЬДИН 1.)
-  text = text.replace(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/gi, ''); // Удаление дублей заголовка
+  // 1. Лечим слипшийся текст (МОРЯПРИП -> МОРЯ ПРИП)
+  text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
+  
+  // 2. Пробел перед 1. и 2. (КИЛЬДИН1. -> КИЛЬДИН 1.)
+  text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2');
+  
+  // 3. Лечим английские C и B в координатах
+  text = text.replace(/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[Cc]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[BbEe]/g, function(m, lat, lon) {
+    return lat + 'С ' + lon + 'В';
+  });
   
   const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/i).map(s=>s.trim()).filter(s=>s);
   
   if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
   
   for(const p of parts){
+    // Пропускаем дубли заголовков, в которых нет координат
+    if (!p.match(/[СсNnC]/) && !p.includes('РАДИУСОМ')) continue;
+
     const r=parseOne(p);
-    if(!r){continue} // Игнорируем обрывки без КАРТА
+    if(!r){continue}
     if(r.error){
       preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>ПРИП ${xmlEscape(r.pripNum)}</h3><div class="err">${xmlEscape(r.error)}</div></div>`);
       continue;
