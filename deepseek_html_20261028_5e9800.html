@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ПРИП → KML</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0d6efd">
+<style>
+*{box-sizing:border-box}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;margin:0;padding:16px;background:#f5f7fb;color:#1f2937}
+h1{font-size:1.4em;margin:0 0 8px;color:#0d6efd}
+.container{max-width:720px;margin:0 auto}
+textarea{width:100%;min-height:150px;padding:12px;border:1px solid #cbd5e1;border-radius:8px;font-family:inherit;font-size:14px;resize:vertical}
+button{padding:12px 20px;border:none;border-radius:8px;background:#0d6efd;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin:8px 4px 0 0}
+button:disabled{background:#94a3b8;cursor:not-allowed}
+button.secondary{background:#e2e8f0;color:#1f2937}
+.preview{margin:16px 0}
+.card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px}
+.card h3{margin:0 0 8px;font-size:1em;color:#0d6efd}
+.card p{margin:4px 0;font-size:13px}
+.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
+.tag{display:inline-block;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1e40af;font-size:12px}
+.err{background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;margin:8px 0;font-size:13px}
+.info{font-size:12px;color:#64748b;margin-top:16px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>ПРИП → KML</h1>
+  <p style="margin:0 0 12px;color:#475569;font-size:14px">Вставьте текст предупреждения (можно несколько подряд). Нажмите «Обработать», затем «Скачать KML».</p>
+  <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
+  <div>
+    <button id="parse">Обработать</button>
+    <button id="example" class="secondary">Пример</button>
+    <button id="download" disabled>Скачать KML</button>
+  </div>
+  <div id="preview" class="preview"></div>
+  <p class="info">
+    Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
+    Участки «далее по береговой линии» заменяются прямыми; исключения (острова, берег) не моделируются — это отмечается в описании каждого района.
+  </p>
+</div>
+
+<script>
+function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
+const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
+function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
+function parseCoord(s){const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);if(!m)return null;return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600}
+
+function parseOne(rawText){
+  const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
+  if(!t)return null;
+  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТА\s+(\d+)/i);
+  if(!head)return null;
+  const city=head[1].toUpperCase(),pripNum=head[2],mapNum=head[3];
+  
+  const areaM=t.match(/КАРТА\s+\d+\s+(.+?)\s*1\s*\./);
+  const area=areaM?areaM[1].trim():'';
+  const sec1M=t.match(/1\s*\.\s*(.+?)(?=\s*2\s*\.|\s*ОТМ\s+ЭТОТ)/);
+  const sec1=sec1M?sec1M[1].trim():'';
+  
+  let cancel='';
+  const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
+  if(otmM){
+    const d=otmM[1],mon=otmM[2].toUpperCase();
+    if(d.length===6)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`;
+    else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`;
+    else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`;
+    else cancel=`${d} ${monthFull(mon)}`;
+  }
+  
+  let typeLabel,color,fillColor;
+  if(/СТРЕЛЬБ|АРТИЛЛЕР/i.test(sec1)){typeLabel='Артиллерийские стрельбы';color='ff0000ff';fillColor='4d0000ff'}
+  else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';color='ff00a5ff';fillColor='4d00a5ff'}
+  else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';color='ffff00ff';fillColor='4dff00ff'}
+  else{typeLabel='Специальные работы';color='ffff0000';fillColor='4dff0000'}
+  
+  let period='';
+  const pM=sec1.match(/(\d{1,2})\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})\s+([А-ЯЁ]{3,})/i);
+  if(pM){
+    const d1=parseInt(pM[1],10),m1=pM[2],d2=parseInt(pM[3],10),m2=pM[4];
+    period=m1?`${d1} ${monthFull(m1)} – ${d2} ${monthFull(m2)}`:`${d1}–${d2} ${monthFull(m2)}`;
+  }
+  
+  let hours='';
+  const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/);
+  if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`;
+  else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
+  
+  let geometry;
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNn]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEe]/);
+  
+  if(circM){
+    const rVal=parseFloat(circM[1].replace(',','.'));
+    const rUnit=circM[2].toUpperCase();
+    const radiusM=rUnit.includes('МИЛ')?rVal*1852:rVal;
+    const cLat=parseCoord(circM[3]);
+    const cLon=parseCoord(circM[4]);
+    const pts=[];
+    for(let i=0;i<=36;i++){
+      const a=(i*10)*Math.PI/180;
+      const lat=cLat+(radiusM*Math.cos(a))/111320;
+      const lon=cLon+(radiusM*Math.sin(a))/(111320*Math.cos(cLat*Math.PI/180));
+      pts.push([lon,lat]);
+    }
+    geometry={kind:'circle',pts,radiusM,cLat,cLon};
+  }else{
+    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNn]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEe]/g;
+    const pts=[];let m;
+    while((m=re.exec(t))!==null){
+      const lat=parseCoord(m[1]);const lon=parseCoord(m[2]);
+      if(lat!==null&&lon!==null)pts.push([lon,lat]);
+    }
+    if(pts.length>1){
+      const a=pts[0],b=pts[pts.length-1];
+      if(Math.abs(a[0]-b[0])>1e-9||Math.abs(a[1]-b[1])>1e-9)pts.push([a[0],a[1]]);
+    }
+    if(pts.length<3)return{error:'Не удалось выделить координаты района',pripNum,mapNum,city};
+    geometry={kind:'polygon',pts};
+  }
+  
+  const notes=[];
+  if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
+  if(/ИСКЛЮЧАЯ\s+ОСТРОВА/i.test(sec1))notes.push('исключение островов не смоделировано');
+  if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
+  if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
+  
+  return{city,pripNum,mapNum,area,sec1,typeLabel,color,fillColor,period,hours,cancel,geometry,notes};
+}
+
+function buildKML(items){
+  const placemarks=items.map(p=>{
+    const coords=p.geometry.pts.map(([lon,lat])=>`              ${lon.toFixed(6)},${lat.toFixed(6)},0`).join('\n');
+    const rows=[
+      `<b>${xmlEscape(p.typeLabel)}</b>`,
+      p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'',
+      p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'',
+      p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
+      p.mapNum?`<b>Карта:</b> ${xmlEscape(p.mapNum)}`:'',
+      p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
+      p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
+    ].filter(Boolean).join('<br/>');
+    return `    <Placemark>
+      <name>ПРИП ${xmlEscape(p.pripNum)}</name>
+      <description><![CDATA[${rows}]]></description>
+      <styleUrl>#s${xmlEscape(p.pripNum)}</styleUrl>
+      <Polygon>
+        <tessellate>1</tessellate>
+        <altitudeMode>clampToGround</altitudeMode>
+        <outerBoundaryIs>
+          <LinearRing>
+            <coordinates>
+${coords}
+            </coordinates>
+          </LinearRing>
+        </outerBoundaryIs>
+      </Polygon>
+    </Placemark>`;
+  }).join('\n');
+  
+  const styles=items.map(p=>`    <Style id="s${xmlEscape(p.pripNum)}">
+      <LineStyle><color>${p.color}</color><width>2</width></LineStyle>
+      <PolyStyle><color>${p.fillColor}</color></PolyStyle>
+    </Style>`).join('\n');
+  
+  const firstName=items.length===1?`ПРИП ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>${xmlEscape(firstName)}</name>
+    <description><![CDATA[Сгенерировано из текста ПРИП. Полигоны упрощены; для официального судовождения используйте оригинал ПРИП и официальную карту.]]></description>
+${styles}
+${placemarks}
+  </Document>
+</kml>`;
+}
+
+const input=document.getElementById('input');
+const parseBtn=document.getElementById('parse');
+const dlBtn=document.getElementById('download');
+const preview=document.getElementById('preview');
+const exampleBtn=document.getElementById('example');
+let parsed=[];
+
+exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 375 КАРТА 12000 МОТОВСКИЙ ЗАЛИВ 1. ЗАПРЕТНЫЙ ПЛАВАНИЯ ВСЕХ СУДОВ 11 ОКТ ПО 10 НОЯБ КРУГЛОСУТОЧНО РАЙОН РАДИУСОМ 1 МИЛЯ ИЗ 69-31.03С 032-56.63В 2. ОТМ ЭТОТ НР 11 НОЯБ='};
+
+parseBtn.onclick=()=>{
+  preview.innerHTML='';parsed=[];dlBtn.disabled=true;
+  let text=input.value.trim();
+  if(!text)return;
+  
+  // Предварительная обработка текста
+  text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2'); // Пробел перед 1. и 2. (КИЛЬДИН1. -> КИЛЬДИН 1.)
+  text = text.replace(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/gi, ''); // Удаление дублей заголовка
+  
+  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/i).map(s=>s.trim()).filter(s=>s);
+  
+  if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
+  
+  for(const p of parts){
+    const r=parseOne(p);
+    if(!r){continue} // Игнорируем обрывки без КАРТА
+    if(r.error){
+      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>ПРИП ${xmlEscape(r.pripNum)}</h3><div class="err">${xmlEscape(r.error)}</div></div>`);
+      continue;
+    }
+    parsed.push(r);
+    preview.insertAdjacentHTML('beforeend',`<div class="card">
+      <h3>ПРИП ${xmlEscape(r.pripNum)}</h3>
+      <div class="row">
+        <span class="tag">${xmlEscape(r.typeLabel)}</span>
+        ${r.period?`<span class="tag">${xmlEscape(r.period)}</span>`:''}
+        ${r.hours?`<span class="tag">${xmlEscape(r.hours)}</span>`:''}
+      </div>
+      <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
+      <p><b>Карта:</b> ${xmlEscape(r.mapNum)}</p>
+      <p><b>Точек:</b> ${r.geometry.pts.length}</p>
+      ${r.geometry.kind==='circle'?`<p><b>Круг:</b> ${r.geometry.radiusM} м, центр ${r.geometry.cLat.toFixed(4)}°С ${r.geometry.cLon.toFixed(4)}°В</p>`:''}
+      ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
+      ${r.notes.length?`<p style="color:#64748b"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
+    </div>`);
+  }
+  dlBtn.disabled=parsed.length===0;
+};
+
+dlBtn.onclick=()=>{
+  if(!parsed.length)return;
+  const kml=buildKML(parsed);
+  const name=parsed.length===1?`ПРИП - ${parsed[0].pripNum}.kml`:`ПРИП - ${parsed.map(p=>p.pripNum).join(', ')}.kml`;
+  const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(blob);a.download=name;
+  document.body.appendChild(a);a.click();a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+};
+
+if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
+  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+}
+</script>
+</body>
+</html>
