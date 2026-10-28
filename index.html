@@ -68,6 +68,32 @@ function formatDM(deg) {
   return `${d}° ${m.toFixed(3)}′`;
 }
 
+// Умный поиск координат по токенам
+function extractCoordinates(text) {
+    // Ищем токены вида 69-28.0 или 68-58-30 (с поддержкой букв l, I, O вместо 1 и 0)
+    const rawTokens = text.match(/\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+|-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)/gi) || [];
+    
+    // Фильтруем токены, отсеивая даты (например, 29-31, если нет точки и это 2 части)
+    const tokens = rawTokens.filter(tok => {
+        if (!tok.includes('.') && !tok.includes(',') && tok.split('-').length === 2) return false;
+        return true;
+    });
+
+    const pts = [];
+    for (let i = 0; i < tokens.length - 1; i += 2) {
+        const latStr = tokens[i].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
+        const lonStr = tokens[i+1].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
+        const lat = parseCoord(latStr);
+        const lon = parseCoord(lonStr);
+        
+        // Проверка на вменяемость координат (Баренцево/Белое моря)
+        if (lat !== null && lon !== null && lat > 60 && lat < 85 && lon > 20 && lon < 60) {
+            pts.push([lon, lat]);
+        }
+    }
+    return pts;
+}
+
 function parseOne(rawText){
   const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
   if(!t)return null;
@@ -109,19 +135,19 @@ function parseOne(rawText){
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   let geometry;
-  // Включаем l, I, i, O, o в поиск (на случай если скопировались буквы вместо цифр)
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?(?:-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)?)\s*[a-zA-Zа-яА-Я]?\s*(\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?(?:-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)?)/i);
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ/i);
   
   if(circM){
     const rVal=parseFloat(circM[1].replace(',','.'));
     const rUnit=circM[2].toUpperCase();
     const radiusM=rUnit.includes('МИЛ')?rVal*1852:rVal;
     
-    // Чистим буквы на цифры перед парсингом
-    const cLatStr = circM[3].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
-    const cLonStr = circM[4].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
-    const cLat=parseCoord(cLatStr);
-    const cLon=parseCoord(cLonStr);
+    // Извлекаем первые две координаты для центра
+    const tokens = extractCoordinates(t);
+    if(tokens.length < 1) return {error:'Не удалось найти координаты центра круга',pripNum,mapNum,city};
+    
+    const cLon = tokens[0][0];
+    const cLat = tokens[0][1];
     
     const pts=[];
     for(let i=0;i<=36;i++){
@@ -132,17 +158,8 @@ function parseOne(rawText){
     }
     geometry={kind:'circle',pts,radiusM,cLat,cLon};
   }else{
-    // Универсальная регулярка с поддержкой "битых" символов
-    const re=/(\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?(?:-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)?)\s*[a-zA-Zа-яА-Я]?\s*(\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?(?:-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)?)/gi;
-    const pts=[];let m;
-    while((m=re.exec(t))!==null){
-      // Чистим буквы на цифры
-      const latStr = m[1].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
-      const lonStr = m[2].replace(/[lIi]/g, '1').replace(/[Oo]/g, '0');
-      const lat=parseCoord(latStr);
-      const lon=parseCoord(lonStr);
-      if(lat!==null&&lon!==null)pts.push([lon,lat]);
-    }
+    const pts = extractCoordinates(t);
+    
     if(pts.length>1){
       const a=pts[0],b=pts[pts.length-1];
       if(Math.abs(a[0]-b[0])>1e-9||Math.abs(a[1]-b[1])>1e-9)pts.push([a[0],a[1]]);
@@ -227,7 +244,7 @@ const exampleBtn=document.getElementById('example');
 const sk42Checkbox=document.getElementById('sk42');
 let parsed=[];
 
-exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 361/26 ПРИП МУРМАНСК 361 КАРТА 12000 БАРЕНЦЕВО МОРЕ 1. УЧЕНИЯ ВМФ 01 ПО 31 ОКТ КРУГЛОСУТОЧНО РАЙОНЕ ЗАПРЕТНОМ ДЛЯ ПЛАВАНИЯ 69-28.0С 034-47.0В 69-28.0С 035-10.5В 69-21.5С 035-10.5В 69-21.5С 034-47.0В 2. ОТМ ЭТОТ НР 01 НОЯБ='};
+exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 361/26 ПРИП МУРМАНСК 361 КАРТА 12000 БАРЕНЦЕВО МОРЕ1. УЧЕНИЯ ВМФ 01 ПО 31 ОКТ КРУГЛОСУТОЧНО РАЙОНЕ ЗАПРЕТНОМ ДЛЯ ПЛАВАНИЯ 69-28.0С 034-47.0В 69-28.0С 035-10.5В 69-21.5С 035-10.5В 69-21.5С 034-47.0В 2. ОТМ ЭТОТ НР 01 НОЯБ='};
 
 clearBtn.onclick=()=>{
   input.value='';
@@ -242,12 +259,7 @@ parseBtn.onclick=()=>{
   let text=input.value.trim();
   if(!text)return;
   
-  // Удаляем невидимые символы
   text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
-  
-  // Убираем случайные пробелы внутри координат (69-2 1.5 -> 69-21.5)
-  text = text.replace(/(\d{1,3})-(\d{1,2})\s+(\d)/g, '$1-$2$3');
-  
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
   text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2');
   
@@ -272,8 +284,8 @@ parseBtn.onclick=()=>{
     if (r.geometry.kind === 'circle') {
       coordsStr = `<p><b>Центр (DM):</b> ${formatDM(r.geometry.cLat)} С, ${formatDM(r.geometry.cLon)} В (Радиус: ${r.geometry.radiusM} м)</p>`;
     } else {
-      ptsList = r.geometry.pts.slice(0, -1).map(pt => `${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
-      coordsStr = `<p><b>Точек распознано:</b> ${r.geometry.pts.length - 1}</p><p style="font-size:11px;color:#666;margin-top:2px">${ptsList}</p>`;
+      ptsList = r.geometry.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
+      coordsStr = `<p><b>Точек распознано:</b> ${r.geometry.pts.length}</p><p style="font-size:11px;color:#666;margin-top:2px">${ptsList}</p>`;
     }
 
     preview.insertAdjacentHTML('beforeend',`<div class="card">
