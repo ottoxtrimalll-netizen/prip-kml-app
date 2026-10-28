@@ -37,7 +37,7 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer}
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
     <label>
       <input type="checkbox" id="sk42">
-      Текст в Пулково-42 (применить поправку для KML)
+      Текст в Пулково-42 (применить поправку)
     </label>
   </div>
 
@@ -61,13 +61,11 @@ const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'�
 function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
 function parseCoord(s){const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);if(!m)return null;return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600}
 
-// Форматирование десятичных градусов обратно в DM (Градусы-Минуты) для отображения
 function formatDM(deg) {
   if (deg === undefined || deg === null) return '';
   const d = Math.floor(Math.abs(deg));
   const m = (Math.abs(deg) - d) * 60;
-  const sign = deg < 0 ? '-' : '';
-  return `${sign}${d}° ${m.toFixed(3)}′`;
+  return `${d}° ${m.toFixed(3)}′`;
 }
 
 function parseOne(rawText){
@@ -93,7 +91,7 @@ function parseOne(rawText){
   }
   
   let typeLabel,color,fillColor;
-  if(/СТРЕЛЬБ|АРТИЛЛЕР/i.test(sec1)){typeLabel='Артиллерийские стрельбы';color='ff0000ff';fillColor='4d0000ff'}
+  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ/i.test(sec1)){typeLabel='Стрельбы / Учения';color='ff0000ff';fillColor='4d0000ff'}
   else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';color='ff00a5ff';fillColor='4d00a5ff'}
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';color='ffff00ff';fillColor='4dff00ff'}
   else{typeLabel='Специальные работы';color='ffff0000';fillColor='4dff0000'}
@@ -111,7 +109,7 @@ function parseOne(rawText){
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   let geometry;
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/);
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/i);
   
   if(circM){
     const rVal=parseFloat(circM[1].replace(',','.'));
@@ -128,7 +126,8 @@ function parseOne(rawText){
     }
     geometry={kind:'circle',pts,radiusM,cLat,cLon};
   }else{
-    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/g;
+    // Сделали регулярку нечувствительной к регистру (i) и пробелам (\s*)
+    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/gi;
     const pts=[];let m;
     while((m=re.exec(t))!==null){
       const lat=parseCoord(m[1]);const lon=parseCoord(m[2]);
@@ -138,7 +137,7 @@ function parseOne(rawText){
       const a=pts[0],b=pts[pts.length-1];
       if(Math.abs(a[0]-b[0])>1e-9||Math.abs(a[1]-b[1])>1e-9)pts.push([a[0],a[1]]);
     }
-    if(pts.length<3)return{error:'Не удалось выделить координаты района',pripNum,mapNum,city};
+    if(pts.length<3)return{error:'Не удалось выделить координаты района (менее 3 точек)',pripNum,mapNum,city};
     geometry={kind:'polygon',pts};
   }
   
@@ -153,13 +152,9 @@ function parseOne(rawText){
 
 function buildKML(items, isSK42){
   const placemarks=items.map(p=>{
-    // Если выбрана поправка СК-42 -> WGS-84
-    // Для широты Мурманска (Баренцево море) сдвиг примерно: +0.0015 Lat, -0.0022 Lon
-    // (Это очень приблизительная локальная аппроксимация, KML не поддерживает проекции напрямую)
     let dLat = 0, dLon = 0;
     if (isSK42) {
-      dLat = 0.0014; 
-      dLon = -0.0020;
+      dLat = 0.0014; dLon = -0.0020;
     }
 
     const coords=p.geometry.pts.map(([lon,lat])=>{
@@ -175,7 +170,7 @@ function buildKML(items, isSK42){
       p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
       p.mapNum?`<b>Карта:</b> ${xmlEscape(p.mapNum)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
-      isSK42?`<i>Применена поправка Пулково-42 (СК-42) → WGS-84.</i><br/>`:'',
+      isSK42?`<i>Применена поправка СК-42 → WGS-84.</i><br/>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean).join('<br/>');
     return `    <Placemark>
@@ -222,9 +217,8 @@ const exampleBtn=document.getElementById('example');
 const sk42Checkbox=document.getElementById('sk42');
 let parsed=[];
 
-exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 375 КАРТА 12000 МОТОВСКИЙ ЗАЛИВ 1. ЗАПРЕТНЫЙ ПЛАВАНИЯ ВСЕХ СУДОВ 11 ОКТ ПО 10 НОЯБ КРУГЛОСУТОЧНО РАЙОН РАДИУСОМ 1 МИЛЯ ИЗ 69-31.03С 032-56.63В 2. ОТМ ЭТОТ НР 11 НОЯБ='};
+exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 361/26 ПРИП МУРМАНСК 361 КАРТА 12000 БАРЕНЦЕВО МОРЕ1. УЧЕНИЯ ВМФ 01 ПО 31 ОКТ КРУГЛОСУТОЧНО РАЙОНЕ ЗАПРЕТНОМ ДЛЯ ПЛАВАНИЯ 69-28.0С 034-47.0В 69-28.0С 035-10.5В 69-21.5С 035-10.5В 69-21.5С 034-47.0В 2. ОТМ ЭТОТ НР 01 НОЯБ='};
 
-// Обработчик кнопки Сброс
 clearBtn.onclick=()=>{
   input.value='';
   preview.innerHTML='';
@@ -238,16 +232,8 @@ parseBtn.onclick=()=>{
   let text=input.value.trim();
   if(!text)return;
   
-  // 1. Лечим слипшийся текст (МОРЯПРИП -> МОРЯ ПРИП)
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
-  
-  // 2. Пробел перед 1. и 2. (КИЛЬДИН1. -> КИЛЬДИН 1.)
   text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2');
-  
-  // 3. Лечим английские C и B в координатах
-  text = text.replace(/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[Cc]\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[BbEe]/g, function(m, lat, lon) {
-    return lat + 'С ' + lon + 'В';
-  });
   
   const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/i).map(s=>s.trim()).filter(s=>s);
   
@@ -264,13 +250,15 @@ parseBtn.onclick=()=>{
     }
     parsed.push(r);
     
-    // Форматируем координаты для красивого вывода (DM)
     let coordsStr = '';
+    let ptsList = '';
+    
     if (r.geometry.kind === 'circle') {
       coordsStr = `<p><b>Центр (DM):</b> ${formatDM(r.geometry.cLat)} С, ${formatDM(r.geometry.cLon)} В (Радиус: ${r.geometry.radiusM} м)</p>`;
     } else {
-      const firstPt = r.geometry.pts[0];
-      coordsStr = `<p><b>Первая точка (DM):</b> ${formatDM(firstPt[1])} С, ${formatDM(firstPt[0])} В (Всего точек: ${r.geometry.pts.length})</p>`;
+      // Показываем список всех распознанных точек
+      ptsList = r.geometry.pts.slice(0, -1).map(pt => `${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
+      coordsStr = `<p><b>Точек распознано:</b> ${r.geometry.pts.length - 1}</p><p style="font-size:11px;color:#666;margin-top:2px">${ptsList}</p>`;
     }
 
     preview.insertAdjacentHTML('beforeend',`<div class="card">
