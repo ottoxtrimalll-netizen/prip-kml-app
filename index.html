@@ -68,12 +68,9 @@ function formatDM(deg) {
   return `${d}° ${m.toFixed(3)}′`;
 }
 
-// Умный поиск координат по токенам
+// Умный поиск координат (игнорирует буквы, пробелы и невидимые символы)
 function extractCoordinates(text) {
-    // Ищем токены вида 69-28.0 или 68-58-30 (с поддержкой букв l, I, O вместо 1 и 0)
     const rawTokens = text.match(/\d{1,3}-[0-9lIiOo]+(?:[.,][0-9lIiOo]+|-[0-9lIiOo]+(?:[.,][0-9lIiOo]+)?)/gi) || [];
-    
-    // Фильтруем токены, отсеивая даты (например, 29-31, если нет точки и это 2 части)
     const tokens = rawTokens.filter(tok => {
         if (!tok.includes('.') && !tok.includes(',') && tok.split('-').length === 2) return false;
         return true;
