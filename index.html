@@ -15,6 +15,7 @@ textarea{width:100%;min-height:150px;padding:12px;border:1px solid #cbd5e1;borde
 button{padding:12px 20px;border:none;border-radius:8px;background:#0d6efd;color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin:8px 4px 0 0}
 button:disabled{background:#94a3b8;cursor:not-allowed}
 button.secondary{background:#e2e8f0;color:#1f2937}
+button.danger{background:#ef4444;color:#fff}
 .preview{margin:16px 0}
 .card{background:#fff;border:1px solid #e2e8f0;border-radius:8px;padding:12px;margin-bottom:8px}
 .card h3{margin:0 0 8px;font-size:1em;color:#0d6efd}
@@ -23,6 +24,8 @@ button.secondary{background:#e2e8f0;color:#1f2937}
 .tag{display:inline-block;padding:2px 8px;border-radius:4px;background:#dbeafe;color:#1e40af;font-size:12px}
 .err{background:#fee2e2;color:#991b1b;padding:12px;border-radius:8px;margin:8px 0;font-size:13px}
 .info{font-size:12px;color:#64748b;margin-top:16px;line-height:1.5}
+label{display:inline-flex;align-items:center;font-size:13px;color:#475569;margin-top:10px;cursor:pointer;background:#e2e8f0;padding:8px 12px;border-radius:8px;font-weight:600}
+input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer}
 </style>
 </head>
 <body>
@@ -30,11 +33,21 @@ button.secondary{background:#e2e8f0;color:#1f2937}
   <h1>ПРИП → KML</h1>
   <p style="margin:0 0 12px;color:#475569;font-size:14px">Вставьте текст предупреждения (можно несколько подряд). Нажмите «Обработать», затем «Скачать KML».</p>
   <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
+  
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
+    <label>
+      <input type="checkbox" id="sk42">
+      Текст в Пулково-42 (применить поправку для KML)
+    </label>
+  </div>
+
   <div>
     <button id="parse">Обработать</button>
     <button id="example" class="secondary">Пример</button>
+    <button id="clear" class="danger">Сброс</button>
     <button id="download" disabled>Скачать KML</button>
   </div>
+  
   <div id="preview" class="preview"></div>
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
@@ -47,6 +60,15 @@ function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&
 const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
 function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
 function parseCoord(s){const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);if(!m)return null;return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600}
+
+// Форматирование десятичных градусов обратно в DM (Градусы-Минуты) для отображения
+function formatDM(deg) {
+  if (deg === undefined || deg === null) return '';
+  const d = Math.floor(Math.abs(deg));
+  const m = (Math.abs(deg) - d) * 60;
+  const sign = deg < 0 ? '-' : '';
+  return `${sign}${d}° ${m.toFixed(3)}′`;
+}
 
 function parseOne(rawText){
   const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
@@ -129,9 +151,23 @@ function parseOne(rawText){
   return{city,pripNum,mapNum,area,sec1,typeLabel,color,fillColor,period,hours,cancel,geometry,notes};
 }
 
-function buildKML(items){
+function buildKML(items, isSK42){
   const placemarks=items.map(p=>{
-    const coords=p.geometry.pts.map(([lon,lat])=>`              ${lon.toFixed(6)},${lat.toFixed(6)},0`).join('\n');
+    // Если выбрана поправка СК-42 -> WGS-84
+    // Для широты Мурманска (Баренцево море) сдвиг примерно: +0.0015 Lat, -0.0022 Lon
+    // (Это очень приблизительная локальная аппроксимация, KML не поддерживает проекции напрямую)
+    let dLat = 0, dLon = 0;
+    if (isSK42) {
+      dLat = 0.0014; 
+      dLon = -0.0020;
+    }
+
+    const coords=p.geometry.pts.map(([lon,lat])=>{
+      const finalLon = lon + dLon;
+      const finalLat = lat + dLat;
+      return `              ${finalLon.toFixed(6)},${finalLat.toFixed(6)},0`;
+    }).join('\n');
+
     const rows=[
       `<b>${xmlEscape(p.typeLabel)}</b>`,
       p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'',
@@ -139,6 +175,7 @@ function buildKML(items){
       p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
       p.mapNum?`<b>Карта:</b> ${xmlEscape(p.mapNum)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
+      isSK42?`<i>Применена поправка Пулково-42 (СК-42) → WGS-84.</i><br/>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean).join('<br/>');
     return `    <Placemark>
@@ -169,7 +206,7 @@ ${coords}
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${xmlEscape(firstName)}</name>
-    <description><![CDATA[Сгенерировано из текста ПРИП. Полигоны упрощены; для официального судовождения используйте оригинал ПРИП и официальную карту.]]></description>
+    <description><![CDATA[Сгенерировано из текста ПРИП. Полигоны упрощены.]]></description>
 ${styles}
 ${placemarks}
   </Document>
@@ -179,11 +216,22 @@ ${placemarks}
 const input=document.getElementById('input');
 const parseBtn=document.getElementById('parse');
 const dlBtn=document.getElementById('download');
+const clearBtn=document.getElementById('clear');
 const preview=document.getElementById('preview');
 const exampleBtn=document.getElementById('example');
+const sk42Checkbox=document.getElementById('sk42');
 let parsed=[];
 
 exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 375 КАРТА 12000 МОТОВСКИЙ ЗАЛИВ 1. ЗАПРЕТНЫЙ ПЛАВАНИЯ ВСЕХ СУДОВ 11 ОКТ ПО 10 НОЯБ КРУГЛОСУТОЧНО РАЙОН РАДИУСОМ 1 МИЛЯ ИЗ 69-31.03С 032-56.63В 2. ОТМ ЭТОТ НР 11 НОЯБ='};
+
+// Обработчик кнопки Сброс
+clearBtn.onclick=()=>{
+  input.value='';
+  preview.innerHTML='';
+  parsed=[];
+  dlBtn.disabled=true;
+  input.focus();
+};
 
 parseBtn.onclick=()=>{
   preview.innerHTML='';parsed=[];dlBtn.disabled=true;
@@ -206,8 +254,7 @@ parseBtn.onclick=()=>{
   if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
   
   for(const p of parts){
-    // Пропускаем дубли заголовков, в которых нет координат
-    if (!p.match(/[СсNnC]/) && !p.includes('РАДИУСОМ')) continue;
+    if (!p.match(/\d+-\d+/)) continue;
 
     const r=parseOne(p);
     if(!r){continue}
@@ -216,6 +263,16 @@ parseBtn.onclick=()=>{
       continue;
     }
     parsed.push(r);
+    
+    // Форматируем координаты для красивого вывода (DM)
+    let coordsStr = '';
+    if (r.geometry.kind === 'circle') {
+      coordsStr = `<p><b>Центр (DM):</b> ${formatDM(r.geometry.cLat)} С, ${formatDM(r.geometry.cLon)} В (Радиус: ${r.geometry.radiusM} м)</p>`;
+    } else {
+      const firstPt = r.geometry.pts[0];
+      coordsStr = `<p><b>Первая точка (DM):</b> ${formatDM(firstPt[1])} С, ${formatDM(firstPt[0])} В (Всего точек: ${r.geometry.pts.length})</p>`;
+    }
+
     preview.insertAdjacentHTML('beforeend',`<div class="card">
       <h3>ПРИП ${xmlEscape(r.pripNum)}</h3>
       <div class="row">
@@ -225,8 +282,7 @@ parseBtn.onclick=()=>{
       </div>
       <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
       <p><b>Карта:</b> ${xmlEscape(r.mapNum)}</p>
-      <p><b>Точек:</b> ${r.geometry.pts.length}</p>
-      ${r.geometry.kind==='circle'?`<p><b>Круг:</b> ${r.geometry.radiusM} м, центр ${r.geometry.cLat.toFixed(4)}°С ${r.geometry.cLon.toFixed(4)}°В</p>`:''}
+      ${coordsStr}
       ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
       ${r.notes.length?`<p style="color:#64748b"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
     </div>`);
@@ -236,7 +292,8 @@ parseBtn.onclick=()=>{
 
 dlBtn.onclick=()=>{
   if(!parsed.length)return;
-  const kml=buildKML(parsed);
+  const applySK42 = sk42Checkbox.checked;
+  const kml=buildKML(parsed, applySK42);
   const name=parsed.length===1?`ПРИП - ${parsed[0].pripNum}.kml`:`ПРИП - ${parsed.map(p=>p.pripNum).join(', ')}.kml`;
   const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
   const a=document.createElement('a');
