@@ -142,7 +142,6 @@ function parseOne(rawText){
     const rUnit=circM[2].toUpperCase();
     const radiusM=rUnit.includes('МИЛ')?rVal*1852:rVal;
     
-    // Извлекаем первые две координаты для центра
     const tokens = extractCoordinates(t);
     if(tokens.length < 1) return {error:'Не удалось найти координаты центра круга',pripNum,mapNum,city};
     
