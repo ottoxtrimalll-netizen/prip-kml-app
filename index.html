@@ -109,7 +109,7 @@ function parseOne(rawText){
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   let geometry;
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/i);
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ\s+(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[a-zA-Zа-яА-Я]?\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)/i);
   
   if(circM){
     const rVal=parseFloat(circM[1].replace(',','.'));
@@ -126,8 +126,8 @@ function parseOne(rawText){
     }
     geometry={kind:'circle',pts,radiusM,cLat,cLon};
   }else{
-    // Сделали регулярку нечувствительной к регистру (i) и пробелам (\s*)
-    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[СсNnC]\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[ВвEeB]/gi;
+    // Универсальная регулярка: ищет две группы цифр с дефисом, игнорируя любые буквы между ними
+    const re=/(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)\s*[a-zA-Zа-яА-Я]?\s*(\d{1,3}-\d{1,2}(?:[.,]\d+)?(?:-\d{1,2}(?:[.,]\d+)?)?)/gi;
     const pts=[];let m;
     while((m=re.exec(t))!==null){
       const lat=parseCoord(m[1]);const lon=parseCoord(m[2]);
@@ -217,7 +217,7 @@ const exampleBtn=document.getElementById('example');
 const sk42Checkbox=document.getElementById('sk42');
 let parsed=[];
 
-exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 361/26 ПРИП МУРМАНСК 361 КАРТА 12000 БАРЕНЦЕВО МОРЕ1. УЧЕНИЯ ВМФ 01 ПО 31 ОКТ КРУГЛОСУТОЧНО РАЙОНЕ ЗАПРЕТНОМ ДЛЯ ПЛАВАНИЯ 69-28.0С 034-47.0В 69-28.0С 035-10.5В 69-21.5С 035-10.5В 69-21.5С 034-47.0В 2. ОТМ ЭТОТ НР 01 НОЯБ='};
+exampleBtn.onclick=()=>{input.value='ПРИП МУРМАНСК 361/26 ПРИП МУРМАНСК 361 КАРТА 12000 БАРЕНЦЕВО МОРЕ 1. УЧЕНИЯ ВМФ 01 ПО 31 ОКТ КРУГЛОСУТОЧНО РАЙОНЕ ЗАПРЕТНОМ ДЛЯ ПЛАВАНИЯ 69-28.0С 034-47.0В 69-28.0С 035-10.5В 69-21.5С 035-10.5В 69-21.5С 034-47.0В 2. ОТМ ЭТОТ НР 01 НОЯБ='};
 
 clearBtn.onclick=()=>{
   input.value='';
@@ -231,6 +231,9 @@ parseBtn.onclick=()=>{
   preview.innerHTML='';parsed=[];dlBtn.disabled=true;
   let text=input.value.trim();
   if(!text)return;
+  
+  // Удаляем невидимые символы (пробелы нулевой ширины и т.д.)
+  text = text.replace(/[\u200B-\u200D\uFEFF]/g, '');
   
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
   text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2');
@@ -256,7 +259,6 @@ parseBtn.onclick=()=>{
     if (r.geometry.kind === 'circle') {
       coordsStr = `<p><b>Центр (DM):</b> ${formatDM(r.geometry.cLat)} С, ${formatDM(r.geometry.cLon)} В (Радиус: ${r.geometry.radiusM} м)</p>`;
     } else {
-      // Показываем список всех распознанных точек
       ptsList = r.geometry.pts.slice(0, -1).map(pt => `${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
       coordsStr = `<p><b>Точек распознано:</b> ${r.geometry.pts.length - 1}</p><p style="font-size:11px;color:#666;margin-top:2px">${ptsList}</p>`;
     }
