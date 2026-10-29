@@ -26,6 +26,7 @@ button.danger{background:#ef4444;color:#fff}
 .info{font-size:12px;color:#64748b;margin-top:16px;line-height:1.5}
 label{display:inline-flex;align-items:center;font-size:13px;color:#475569;margin-top:10px;cursor:pointer;background:#e2e8f0;padding:8px 12px;border-radius:8px;font-weight:600}
 input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer}
+.version{text-align:right;font-size:11px;color:#94a3b8;margin-top:10px;}
 </style>
 </head>
 <body>
@@ -53,13 +54,20 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer}
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
     Участки «далее по береговой линии» заменяются прямыми; исключения (острова, берег) не моделируются — это отмечается в описании каждого района.
   </p>
+  <div class="version">v2.1 (исправление парсера по фидбеку)</div>
 </div>
 
 <script>
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
 const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
 function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
-function parseCoord(s){const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);if(!m)return null;return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600}
+
+// Парсер одной координаты (градусы-минуты-секунды)
+function parseCoord(s){
+  const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);
+  if(!m)return null;
+  return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600;
+}
 
 function formatDM(deg) {
   if (deg === undefined || deg === null) return '';
@@ -68,26 +76,51 @@ function formatDM(deg) {
   return `${d}° ${m.toFixed(3)}′`;
 }
 
-// Умный поиск координат с защитой от пропусков
+// Умный поиск координат (с поддержкой пробелов и любых букв)
 function extractCoordinates(text) {
-    const rawTokens = text.match(/\d{1,3}-[0-9lIiOoL|!]+(?:[.,][0-9lIiOoL|!]+|-[0-9lIiOoL|!]+(?:[.,][0-9lIiOoL|!]+)?)/gi) || [];
+    // Регулярка ищет токены координат: градусы, минуты, опционально секунды, опционально направление
+    const coordRegex = /(\d{1,3})\s*[-–—‑]\s*(\d{1,2}(?:[.,]\d+)?)(?:\s*[-–—‑]\s*(\d{1,2}(?:[.,]\d+)?))?\s*([СсNnЮюSsВвEeЗзWw]?)/g;
     
-    const tokens = rawTokens.filter(tok => {
-        if (!tok.includes('.') && !tok.includes(',') && tok.split('-').length === 2) return false;
-        return true;
-    });
+    const rawTokens = [];
+    let m;
+    while ((m = coordRegex.exec(text)) !== null) {
+        let deg = parseFloat(m[1]);
+        let min = parseFloat(m[2].replace(',', '.'));
+        let sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0;
+        let val = deg + min/60 + sec/3600;
+        let dir = (m[4] || '').toUpperCase();
+        
+        // Фильтр дат (например, 29-31). Если нет букв, дробей и секунд, и оба числа <=31, это дата.
+        if (!m[2].includes('.') && !m[2].includes(',') && !m[3] && !dir) {
+            let p1 = parseInt(m[1], 10);
+            let p2 = parseInt(m[2], 10);
+            if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) {
+                continue; // Пропускаем дату
+            }
+        }
+
+        if (dir === 'Ю' || dir === 'S') val = -val;
+        if (dir === 'З' || dir === 'W') val = -val;
+
+        rawTokens.push({ val, dir });
+    }
 
     const pts = [];
-    for (let i = 0; i < tokens.length - 1; i++) {
-        const latStr = tokens[i].replace(/[lIiL|!]/g, '1').replace(/[Oo]/g, '0');
-        const lonStr = tokens[i+1].replace(/[lIiL|!]/g, '1').replace(/[Oo]/g, '0');
-        const lat = parseCoord(latStr);
-        const lon = parseCoord(lonStr);
+    for (let i = 0; i < rawTokens.length - 1; i++) {
+        let t1 = rawTokens[i];
+        let t2 = rawTokens[i+1];
         
-        // Проверка на вменяемость координат (Баренцево/Белое моря)
-        if (lat !== null && lon !== null && lat > 60 && lat < 85 && lon > 20 && lon < 60) {
+        // Если порядок явно нарушен (долгота не может быть до широты), пропускаем
+        if (t1.dir === 'В' || t1.dir === 'E' || t1.dir === 'З' || t1.dir === 'W') continue;
+        if (t2.dir === 'С' || t2.dir === 'N' || t2.dir === 'Ю' || t2.dir === 'S') continue;
+        
+        let lat = t1.val;
+        let lon = t2.val;
+        
+        // Проверка на вменяемость (работает для любого полушария и моря)
+        if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
             pts.push([lon, lat]);
-            i++; // Пропускаем долготу, которую только что использовали
+            i++; // Пропускаем долготу, так как уже спарили
         }
     }
     return pts;
@@ -134,12 +167,15 @@ function parseOne(rawText){
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   let geometry;
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ\S*|МЕТР\S*|КМ|М\b)\s+ИЗ/i);
+  // Исправлено: поддержка КМ и кириллического "М" с помощью lookahead (?!\p{L})
+  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))\s*(?:ИЗ|ОТ)?/i);
   
   if(circM){
     const rVal=parseFloat(circM[1].replace(',','.'));
     const rUnit=circM[2].toUpperCase();
-    const radiusM=rUnit.includes('МИЛ')?rVal*1852:rVal;
+    let radiusM = rVal;
+    if (rUnit.startsWith('МИЛ')) radiusM *= 1852;
+    else if (rUnit.startsWith('КМ')) radiusM *= 1000;
     
     const tokens = extractCoordinates(t);
     if(tokens.length < 1) return {error:'Не удалось найти координаты центра круга',pripNum,mapNum,city};
@@ -257,17 +293,15 @@ parseBtn.onclick=()=>{
   let text=input.value.trim();
   if(!text)return;
   
-  // 1. Удаляем невидимые символы и неразрывные пробелы
+  // 1. Нормализация тире и невидимых символов
+  text = text.replace(/[–—‑]/g, '-');
   text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
   
-  // 2. Агрессивно убираем пробелы внутри координат (например: 69-2 1 . 5 -> 69-21.5)
-  text = text.replace(/(\d)\s+([-.,])\s*(\d)/g, '$1$2$3');
-  text = text.replace(/(\d)\s+(\d)/g, '$1$2');
-  text = text.replace(/([-.,])\s+(\d)/g, '$1$2');
-  text = text.replace(/(\d)\s+([-.,])/g, '$1$2');
+  // 2. Безопасный пробел перед 1. и 2. (исключаем цифры, тире, запятые и точки)
+  text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
 
+  // 3. Пробел перед слипшимся ПРИП
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
-  text = text.replace(/([^\s])([12]\s*\.)/g, '$1 $2');
   
   const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/i).map(s=>s.trim()).filter(s=>s);
   
