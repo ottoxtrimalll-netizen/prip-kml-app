@@ -43,7 +43,7 @@ button.danger:hover{background:#dc2626}
 .warn{color:#fbbf24;font-size:12px;margin:4px 0}
 .skip{font-size:12px;color:#777;margin:0 0 8px}
 .info{font-size:12px;color:#888;margin-top:16px;line-height:1.5}
-label{
+label.settings-label{
   display:inline-flex;align-items:center;font-size:13px;
   color:#ccc;margin-top:10px;cursor:pointer;
   background:#2d2d2d;padding:8px 12px;border-radius:8px;font-weight:600;
@@ -51,6 +51,16 @@ label{
 input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;accent-color:#0d6efd}
 .version{text-align:right;font-size:11px;color:#555;margin-top:10px;}
 .zone-box{margin-top:8px; border-top:1px dashed #444; padding-top:8px;}
+
+/* Стили для палитры цветов */
+.color-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; background:#1e1e1e; padding:8px 12px; border-radius:8px; border:1px solid #333;}
+.color-picker{display:flex; align-items:center; font-size:13px; color:#ccc; font-weight:600;}
+input[type="color"]{
+  margin-left:6px; border:none; border-radius:4px; width:28px; height:28px;
+  padding:0; background:none; cursor:pointer; vertical-align:middle;
+}
+input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radius: 4px; }
 </style>
 </head>
 <body>
@@ -59,11 +69,17 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
   <p style="margin:0 0 12px;color:#aaa;font-size:14px">Вставьте текст предупреждения (можно несколько подряд). Нажмите «Обработать», затем «Скачать KML».</p>
   <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
 
-  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
-    <label>
+  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+    <label class="settings-label">
       <input type="checkbox" id="sk42">
-      Текст в Пулково-42 (приблизительная поправка)
+      Пулково-42 (поправка)
     </label>
+    
+    <div class="color-row">
+      <label class="color-picker">Контур <input type="color" id="colorLine" value="#ff0000"></label>
+      <label class="color-picker">Заливка <input type="color" id="colorFill" value="#ff0000"></label>
+      <label class="color-picker">Точки <input type="color" id="colorPoint" value="#00d7ff"></label>
+    </div>
   </div>
 
   <div>
@@ -77,16 +93,24 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
     Участки «далее по береговой линии» и «между берегом и…» заменяются прямыми; береговая линия и острова не моделируются — это отмечается в описании каждого района.
   </p>
-  <div class="version">v2.7 (списки огней/знаков)</div>
+  <div class="version">v2.8 (настройка цветов)</div>
 </div>
 
 <script>
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
 const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
-// Сравниваем по первым трём буквам: ПРИП пишет НОЯБ, СЕНТ, ФЕВР и т.п.
 function monthFull(m){
   const s=(m||'').toUpperCase();
   return MONTHS_FULL[s.slice(0,3)]||s.toLowerCase();
+}
+
+// Конвертация HEX (#RRGGBB) в KML (AABBGGRR)
+function hexToKml(hex, alpha='ff') {
+    if (!hex || hex.length !== 7) return alpha + '000000';
+    const r = hex.slice(1, 3);
+    const g = hex.slice(3, 5);
+    const b = hex.slice(5, 7);
+    return alpha + b + g + r;
 }
 
 function formatDM(deg) {
@@ -96,8 +120,6 @@ function formatDM(deg) {
   return `${d}° ${m.toFixed(3)}′`;
 }
 
-// Исправление типичных ошибок распознавания внутри координат (l→1, O→0, Z→2).
-// S/s намеренно не трогаем: это может быть латинская «S» (юг).
 function fixOcr(text) {
   return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m =>
     m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2'));
@@ -139,17 +161,13 @@ function extractCoordinates(text) {
     return pts;
 }
 
-// ---------- Проверка самопересечений ----------
 function orient(o, a, b){ return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
-
 function segCross(p1, p2, p3, p4){
   const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2);
   const d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4);
   return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
          ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
 }
-
-// ring — вершины БЕЗ повторной замыкающей точки; контур считается замкнутым.
 function ringSelfIntersects(ring){
   const n = ring.length;
   for (let i = 0; i < n; i++) {
@@ -161,9 +179,6 @@ function ringSelfIntersects(ring){
   return false;
 }
 
-// Строит геометрию из фрагмента текста: круг, полигон или линия. null — если координат не хватает.
-// Если замкнутый контур самопересекается (так бывает у районов «между берегом и…»,
-// где берег заменить прямой нельзя), порядок точек НЕ меняется: рисуется только открытая граница.
 function buildGeometry(text) {
     const circM = text.match(/РАДИУС[А-ЯЁ]*\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))/i);
     const pts = extractCoordinates(text);
@@ -216,8 +231,6 @@ function describeGeom(g) {
     return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
 }
 
-// Список точечных объектов вида «1. НАЗВАНИЕ 69-34.1С 032-50.5В НР 120  2. ...»
-// full = '1. ' + текст после первого «1.»; номера должны идти подряд 1,2,3...
 function parsePointItems(after1){
   const full='1. '+after1;
   const re=/(?<=^|\s)(\d{1,2})\s*\.(?!\d)\s*/g;
@@ -254,7 +267,6 @@ function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 function parseOne(rawText){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
   if(!t0)return null;
-  // Сообщение заканчивается знаком «=»; дальше идёт время передачи и подпись («161000 МСК ГС-»)
   const eq=t0.indexOf('=');
   const t=(eq>=0?t0.slice(0,eq):t0).trim();
   if(!t)return null;
@@ -262,13 +274,11 @@ function parseOne(rawText){
 
   const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
   if(!head){
-    // Обрывок шапки вроде «ПРИП МУРМАНСК 388/26»
     if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
     return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
   }
   const city=head[1].toUpperCase(),pripNum=head[2];
 
-  // Все номера карт подряд, затем необязательная «КНИГА NNNN»
   const mapsM=t.match(/КАРТ[АЫ]\s+((?:\d+\s+)+)/i);
   const maps=mapsM?mapsM[1].trim().split(/\s+/):[head[3]];
   const mapNum=maps.join(', ');
@@ -279,8 +289,6 @@ function parseOne(rawText){
 
   const startM=rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
 
-  // Служебный заголовок передачи (например «ПРИП МУРМАНСК 396/26 … МУРМАНСК 01 22/10 1500=»):
-  // нет раздела 1 и нет координат — это не само предупреждение.
   if(!startM && extractCoordinates(t).length===0){
     const full=t.match(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?/i);
     return {skip:true,label:full?full[0]:('ПРИП '+pripNum)};
@@ -289,7 +297,6 @@ function parseOne(rawText){
   const areaRaw=startM?rest.slice(0,startM.index).trim():'';
   const after1=startM?rest.slice(startM.index+startM[0].length):rest;
 
-  // Это список точечных объектов (огни/знаки/буи не действуют и т.п.)?
   const items=parsePointItems(after1);
   const withPts=items.filter(it=>it.pts.length>0);
   const isList=!/РАДИУС/i.test(after1) &&
@@ -323,20 +330,18 @@ function parseOne(rawText){
     items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
     if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
 
-    // «БАРЕНЦЕВО МОРЕ ОГНИ ЗНАКОВ НЕ ДЕЙСТВУЮТ» → район + условие
     const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i);
     const sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw);
     const cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
     const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
-    return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,color:'ff00d7ff',fillColor:'4d00d7ff',
-           period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
+    return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
   }
 
-  let typeLabel,color,fillColor;
-  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ/i.test(sec1)){typeLabel='Стрельбы / Учения';color='ff0000ff';fillColor='4d0000ff'}
-  else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';color='ff00a5ff';fillColor='4d00a5ff'}
-  else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';color='ffff00ff';fillColor='4dff00ff'}
-  else{typeLabel='Специальные работы';color='ffff0000';fillColor='4dff0000'}
+  let typeLabel;
+  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ/i.test(sec1)){typeLabel='Стрельбы / Учения';}
+  else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';}
+  else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';}
+  else{typeLabel='Специальные работы';}
 
   let period='';
   const pM=sec1.match(/(\d{1,2})\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})\s+([А-ЯЁ]{3,})/i);
@@ -368,19 +373,19 @@ function parseOne(rawText){
           }
       }
       if (!zones.length) return {error:'Районы найдены, но координаты не распознаны',snippet,pripNum,mapNum,city};
-      if (openNames.length) notes.push(`район ${openNames.join(', ')}: контур самопересекается (ограничен берегом), показана только граница без заливки`);
+      if (openNames.length) notes.push(`район ${openNames.join(', ')}: контур самопересекается, показана только граница`);
   } else {
       singleGeometry = buildGeometry(body);
       if (!singleGeometry) return {error:'Не удалось выделить координаты района (нужно минимум 2 точки или центр круга)',snippet,pripNum,mapNum,city};
-      if (singleGeometry.openBorder) notes.push('контур самопересекается (ограничен берегом), показана только граница без заливки');
+      if (singleGeometry.openBorder) notes.push('контур самопересекается, показана только граница без заливки');
   }
 
   if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
-  if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована (построены прямые между точками)');
+  if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована');
   if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
   if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
 
-  return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,color,fillColor,period,hours,cancel,zones,singleGeometry,points:[],notes};
+  return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,zones,singleGeometry,points:[],notes};
 }
 
 function geomToKml(g, dLon, dLat){
@@ -392,6 +397,16 @@ function geomToKml(g, dLon, dLat){
 }
 
 function buildKML(items, isSK42){
+  // Получаем цвета из палитры
+  const hexLine = document.getElementById('colorLine').value;
+  const hexFill = document.getElementById('colorFill').value;
+  const hexPoint = document.getElementById('colorPoint').value;
+
+  // KML использует AABBGGRR. Для линий ставим 'ff' (100%), для заливки '4d' (30%).
+  const colorLine = hexToKml(hexLine, 'ff');
+  const colorFill = hexToKml(hexFill, '4d');
+  const colorPoint = hexToKml(hexPoint, 'ff');
+
   const allPlacemarks = [];
   const dLat = isSK42 ? 0.0014 : 0;
   const dLon = isSK42 ? -0.0020 : 0;
@@ -417,7 +432,7 @@ function buildKML(items, isSK42){
             allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name>
       <description><![CDATA[${ptRows.join('<br/>')}]]></description>
-      <styleUrl>#s${idx}</styleUrl>
+      <styleUrl>#sPoint</styleUrl>
       <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
     </Placemark>`);
         });
@@ -427,7 +442,7 @@ function buildKML(items, isSK42){
             allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
       <description><![CDATA[${desc}]]></description>
-      <styleUrl>#s${idx}</styleUrl>
+      <styleUrl>#sPoly</styleUrl>
       ${geomToKml(z.geometry, dLon, dLat)}
     </Placemark>`);
         });
@@ -435,24 +450,23 @@ function buildKML(items, isSK42){
         allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)}</name>
       <description><![CDATA[${rows.join('<br/>')}]]></description>
-      <styleUrl>#s${idx}</styleUrl>
+      <styleUrl>#sPoly</styleUrl>
       ${geomToKml(p.singleGeometry, dLon, dLat)}
     </Placemark>`);
     }
   });
 
-  const styles=items.map((p, idx)=>{
-    if (p.points && p.points.length > 0) {
-      return `    <Style id="s${idx}">
-      <IconStyle><color>${p.color}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+  // Единые стили для всех элементов на основе выбранных цветов
+  const styles = `
+    <Style id="sPoly">
+      <LineStyle><color>${colorLine}</color><width>2</width></LineStyle>
+      <PolyStyle><color>${colorFill}</color></PolyStyle>
+    </Style>
+    <Style id="sPoint">
+      <IconStyle><color>${colorPoint}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
       <LabelStyle><scale>0.8</scale></LabelStyle>
-    </Style>`;
-    }
-    return `    <Style id="s${idx}">
-      <LineStyle><color>${p.color}</color><width>2</width></LineStyle>
-      <PolyStyle><color>${p.fillColor}</color></PolyStyle>
-    </Style>`;
-  }).join('\n');
+    </Style>
+  `;
 
   const firstName=items.length===1?`ПРИП ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
   return `<?xml version="1.0" encoding="UTF-8"?>
