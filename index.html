@@ -40,6 +40,8 @@ button.danger:hover{background:#dc2626}
 .row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
 .tag{display:inline-block;padding:2px 8px;border-radius:4px;background:#1e3a8a;color:#93c5fd;font-size:12px}
 .err{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;padding:12px;border-radius:8px;margin:8px 0;font-size:13px}
+.warn{color:#fbbf24;font-size:12px;margin:4px 0}
+.skip{font-size:12px;color:#777;margin:0 0 8px}
 .info{font-size:12px;color:#888;margin-top:16px;line-height:1.5}
 label{
   display:inline-flex;align-items:center;font-size:13px;
@@ -73,15 +75,19 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
   <div id="preview" class="preview"></div>
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
-    Участки «далее по береговой линии» заменяются прямыми; исключения (острова, берег) не моделируются — это отмечается в описании каждого района.
+    Участки «далее по береговой линии» и «между берегом и…» заменяются прямыми; береговая линия и острова не моделируются — это отмечается в описании каждого района.
   </p>
-  <div class="version">v2.4 (исправления разбора)</div>
+  <div class="version">v2.6 (границы у берега, служебные заголовки)</div>
 </div>
 
 <script>
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
 const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
-function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
+// Сравниваем по первым трём буквам: ПРИП пишет НОЯБ, СЕНТ, ФЕВР и т.п.
+function monthFull(m){
+  const s=(m||'').toUpperCase();
+  return MONTHS_FULL[s.slice(0,3)]||s.toLowerCase();
+}
 
 function formatDM(deg) {
   if (deg === undefined || deg === null) return '';
@@ -108,10 +114,8 @@ function extractCoordinates(text) {
         const sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0;
         const dir = (m[4] || '').toUpperCase();
 
-        // Мусор: минуты/секунды >= 60, градусы > 180
         if (min >= 60 || sec >= 60 || deg > 180) continue;
 
-        // Похоже на дату/номер (например 01-31) без десятичных и буквы
         if (!/[.,]/.test(m[2]) && !m[3] && !dir) {
             const p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10);
             if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) continue;
@@ -135,7 +139,31 @@ function extractCoordinates(text) {
     return pts;
 }
 
+// ---------- Проверка самопересечений ----------
+function orient(o, a, b){ return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
+
+function segCross(p1, p2, p3, p4){
+  const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2);
+  const d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4);
+  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
+         ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
+}
+
+// ring — вершины БЕЗ повторной замыкающей точки; контур считается замкнутым.
+function ringSelfIntersects(ring){
+  const n = ring.length;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 2; j < n; j++) {
+      if (i === 0 && j === n - 1) continue;
+      if (segCross(ring[i], ring[(i+1)%n], ring[j], ring[(j+1)%n])) return true;
+    }
+  }
+  return false;
+}
+
 // Строит геометрию из фрагмента текста: круг, полигон или линия. null — если координат не хватает.
+// Если замкнутый контур самопересекается (так бывает у районов «между берегом и…»,
+// где берег заменить прямой нельзя), порядок точек НЕ меняется: рисуется только открытая граница.
 function buildGeometry(text) {
     const circM = text.match(/РАДИУС[А-ЯЁ]*\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))/i);
     const pts = extractCoordinates(text);
@@ -160,11 +188,20 @@ function buildGeometry(text) {
     }
 
     if (pts.length < 2) return null;
-    if (pts.length === 2) return { kind: 'line', pts };
 
-    const a = pts[0], b = pts[pts.length - 1];
-    if (Math.abs(a[0] - b[0]) > 1e-9 || Math.abs(a[1] - b[1]) > 1e-9) pts.push([a[0], a[1]]);
-    return { kind: 'polygon', pts };
+    const ring = pts.slice();
+    const f = ring[0], l = ring[ring.length - 1];
+    if (ring.length > 1 && Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) ring.pop();
+
+    if (ring.length < 2) return null;
+    if (ring.length === 2) return { kind: 'line', pts: ring };
+
+    if (ringSelfIntersects(ring)) {
+        return { kind: 'line', pts: ring, openBorder: true };
+    }
+    const closed = ring.slice();
+    closed.push([ring[0][0], ring[0][1]]);
+    return { kind: 'polygon', pts: closed };
 }
 
 function describeGeom(g) {
@@ -173,14 +210,18 @@ function describeGeom(g) {
     }
     const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
     const label = g.kind === 'line' ? 'Линия, точек' : 'Точек распознано';
-    return `<p><b>${label}:</b> ${g.pts.length}</p><p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
+    const warn = g.openBorder
+        ? `<p class="warn">⚠ Замкнуть контур прямой нельзя: он самопересекается (район ограничен берегом). Показана только граница по точкам ПРИП, без заливки.</p>`
+        : '';
+    return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
 }
 
 function parseOne(rawText){
   const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
   if(!t)return null;
+  const snippet=t.slice(0,160);
   const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТЫ?\s+(\d+)/i);
-  if(!head)return {error:'Не удалось разобрать заголовок ПРИП. Начало текста: «'+t.slice(0,60)+'…»',pripNum:'?',mapNum:'',city:''};
+  if(!head)return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
   const city=head[1].toUpperCase(),pripNum=head[2],mapNum=head[3];
 
   const areaM=t.match(/КАРТЫ?\s+\d+(?:\s+\d+)?\s+(.+?)\s+1\s*\.(?!\d)/);
@@ -188,6 +229,13 @@ function parseOne(rawText){
   const sec1M=t.match(/(?:^|\s)1\s*\.(?!\d)\s*(.+?)(?=\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ|$)/);
   const sec1=sec1M?sec1M[1].trim():'';
   const body=sec1||t;
+
+  // Служебный заголовок передачи (например «ПРИП МУРМАНСК 396/26 … МУРМАНСК 01 22/10 1500=»):
+  // нет раздела 1 и нет координат — это не само предупреждение.
+  if(!sec1M && extractCoordinates(t).length===0){
+    const full=t.match(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?/i);
+    return {skip:true,label:full?full[0]:('ПРИП '+pripNum)};
+  }
 
   let cancel='';
   const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
@@ -217,27 +265,32 @@ function parseOne(rawText){
   if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`;
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
 
+  const notes=[];
   const zones = [];
   let singleGeometry = null;
 
-  // Несколько районов (А. РАЙОН ..., Б. РАЙОН ...). Буква не должна быть концом другого слова.
   const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК))/i);
 
   if (zoneParts.length > 1) {
+      const openNames = [];
       for (let i = 1; i < zoneParts.length; i++) {
           const part = zoneParts[i].trim();
           const nameM = part.match(/^([А-ЯA-Z])\./i);
           const name = nameM ? nameM[1].toUpperCase() : String(i);
           const g = buildGeometry(part);
-          if (g) zones.push({ name, geometry: g });
+          if (g) {
+              zones.push({ name, geometry: g });
+              if (g.openBorder) openNames.push(name);
+          }
       }
-      if (!zones.length) return {error:'Районы найдены, но координаты не распознаны',pripNum,mapNum,city};
+      if (!zones.length) return {error:'Районы найдены, но координаты не распознаны',snippet,pripNum,mapNum,city};
+      if (openNames.length) notes.push(`район ${openNames.join(', ')}: контур самопересекается (ограничен берегом), показана только граница без заливки`);
   } else {
       singleGeometry = buildGeometry(body);
-      if (!singleGeometry) return {error:'Не удалось выделить координаты района (нужно минимум 2 точки или центр круга)',pripNum,mapNum,city};
+      if (!singleGeometry) return {error:'Не удалось выделить координаты района (нужно минимум 2 точки или центр круга)',snippet,pripNum,mapNum,city};
+      if (singleGeometry.openBorder) notes.push('контур самопересекается (ограничен берегом), показана только граница без заливки');
   }
 
-  const notes=[];
   if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
   if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована (построены прямые между точками)');
   if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
@@ -342,8 +395,12 @@ parseBtn.onclick=()=>{
   for(const p of parts){
     const r=parseOne(p);
     if(!r){continue}
+    if(r.skip){
+      preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
+      continue;
+    }
     if(r.error){
-      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>ПРИП ${xmlEscape(r.pripNum)}</h3><div class="err">${xmlEscape(r.error)}</div></div>`);
+      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>ПРИП ${xmlEscape(r.pripNum)}</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
       continue;
     }
     parsed.push(r);
