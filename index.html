@@ -48,6 +48,7 @@ label{
 }
 input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;accent-color:#0d6efd}
 .version{text-align:right;font-size:11px;color:#555;margin-top:10px;}
+.zone-box{margin-top:8px; border-top:1px dashed #444; padding-top:8px;}
 </style>
 </head>
 <body>
@@ -55,11 +56,11 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
   <h1>ПРИП → KML</h1>
   <p style="margin:0 0 12px;color:#aaa;font-size:14px">Вставьте текст предупреждения (можно несколько подряд). Нажмите «Обработать», затем «Скачать KML».</p>
   <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
-  
+
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; margin-bottom: 8px;">
     <label>
       <input type="checkbox" id="sk42">
-      Текст в Пулково-42 (применить поправку)
+      Текст в Пулково-42 (приблизительная поправка)
     </label>
   </div>
 
@@ -68,26 +69,19 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
     <button id="clear" class="danger">Сброс</button>
     <button id="download" disabled>Скачать KML</button>
   </div>
-  
+
   <div id="preview" class="preview"></div>
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
     Участки «далее по береговой линии» заменяются прямыми; исключения (острова, берег) не моделируются — это отмечается в описании каждого района.
   </p>
-  <div class="version">v2.2 (Dark Mode, исправленный парсер)</div>
+  <div class="version">v2.4 (исправления разбора)</div>
 </div>
 
 <script>
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
 const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
 function monthFull(m){return MONTHS_FULL[(m||'').toUpperCase()]||(m||'').toLowerCase()}
-
-// Парсер одной координаты (градусы-минуты-секунды)
-function parseCoord(s){
-  const m=String(s).replace(',','.').match(/^(\d{1,3})-(\d{1,2}(?:\.\d+)?)(?:-(\d{1,2}(?:\.\d+)?))?$/);
-  if(!m)return null;
-  return parseFloat(m[1])+parseFloat(m[2])/60+(m[3]?parseFloat(m[3]):0)/3600;
-}
 
 function formatDM(deg) {
   if (deg === undefined || deg === null) return '';
@@ -96,67 +90,105 @@ function formatDM(deg) {
   return `${d}° ${m.toFixed(3)}′`;
 }
 
-// Умный поиск координат (с поддержкой пробелов и любых букв)
+// Исправление типичных ошибок распознавания внутри координат (l→1, O→0, Z→2).
+// S/s намеренно не трогаем: это может быть латинская «S» (юг).
+function fixOcr(text) {
+  return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m =>
+    m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2'));
+}
+
 function extractCoordinates(text) {
-    const coordRegex = /(\d{1,3})\s*[-–—‑]\s*(\d{1,2}(?:[.,]\d+)?)(?:\s*[-–—‑]\s*(\d{1,2}(?:[.,]\d+)?))?\s*([СсNnЮюSsВвEeЗзWw]?)/g;
-    
+    const coordRegex = /(?<![\d.,])(\d{1,3})\s*-\s*(\d{1,2}(?:[.,]\d+)?)(?!\d)(?:\s*-\s*(\d{1,2}(?:[.,]\d+)?)(?!\d))?\s*([СЮВЗNSEW](?![A-Za-zА-ЯЁа-яё]))?/gi;
+
     const rawTokens = [];
     let m;
     while ((m = coordRegex.exec(text)) !== null) {
-        let deg = parseFloat(m[1]);
-        let min = parseFloat(m[2].replace(',', '.'));
-        let sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0;
-        let val = deg + min/60 + sec/3600;
-        let dir = (m[4] || '').toUpperCase();
-        
-        // Фильтр дат (например, 29-31). Если нет букв, дробей и секунд, и оба числа <=31, это дата.
-        if (!m[2].includes('.') && !m[2].includes(',') && !m[3] && !dir) {
-            let p1 = parseInt(m[1], 10);
-            let p2 = parseInt(m[2], 10);
-            if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) {
-                continue; // Пропускаем дату
-            }
+        const deg = parseFloat(m[1]);
+        const min = parseFloat(m[2].replace(',', '.'));
+        const sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0;
+        const dir = (m[4] || '').toUpperCase();
+
+        // Мусор: минуты/секунды >= 60, градусы > 180
+        if (min >= 60 || sec >= 60 || deg > 180) continue;
+
+        // Похоже на дату/номер (например 01-31) без десятичных и буквы
+        if (!/[.,]/.test(m[2]) && !m[3] && !dir) {
+            const p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10);
+            if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) continue;
         }
 
-        if (dir === 'Ю' || dir === 'S') val = -val;
-        if (dir === 'З' || dir === 'W') val = -val;
-
+        let val = deg + min/60 + sec/3600;
+        if (dir === 'Ю' || dir === 'S' || dir === 'З' || dir === 'W') val = -val;
         rawTokens.push({ val, dir });
     }
 
     const pts = [];
     for (let i = 0; i < rawTokens.length - 1; i++) {
-        let t1 = rawTokens[i];
-        let t2 = rawTokens[i+1];
-        
-        // Если порядок явно нарушен (долгота не может быть до широты), пропускаем
+        const t1 = rawTokens[i], t2 = rawTokens[i+1];
         if (t1.dir === 'В' || t1.dir === 'E' || t1.dir === 'З' || t1.dir === 'W') continue;
         if (t2.dir === 'С' || t2.dir === 'N' || t2.dir === 'Ю' || t2.dir === 'S') continue;
-        
-        let lat = t1.val;
-        let lon = t2.val;
-        
-        // Проверка на вменяемость (работает для любого полушария и моря)
-        if (Math.abs(lat) <= 90 && Math.abs(lon) <= 180) {
-            pts.push([lon, lat]);
-            i++; // Пропускаем долготу, так как уже спарили
+        if (Math.abs(t1.val) <= 90 && Math.abs(t2.val) <= 180) {
+            pts.push([t2.val, t1.val]);
+            i++;
         }
     }
     return pts;
 }
 
+// Строит геометрию из фрагмента текста: круг, полигон или линия. null — если координат не хватает.
+function buildGeometry(text) {
+    const circM = text.match(/РАДИУС[А-ЯЁ]*\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))/i);
+    const pts = extractCoordinates(text);
+
+    if (circM) {
+        if (pts.length < 1) return null;
+        const rVal = parseFloat(circM[1].replace(',', '.'));
+        const rUnit = circM[2].toUpperCase();
+        let radiusM = rVal;
+        if (rUnit.startsWith('МИЛ')) radiusM *= 1852;
+        else if (rUnit.startsWith('КМ')) radiusM *= 1000;
+
+        const cLon = pts[0][0], cLat = pts[0][1];
+        const ring = [];
+        for (let i = 0; i <= 36; i++) {
+            const a = (i * 10) * Math.PI / 180;
+            const lat = cLat + (radiusM * Math.cos(a)) / 111320;
+            const lon = cLon + (radiusM * Math.sin(a)) / (111320 * Math.cos(cLat * Math.PI / 180));
+            ring.push([lon, lat]);
+        }
+        return { kind: 'circle', pts: ring, radiusM, cLat, cLon };
+    }
+
+    if (pts.length < 2) return null;
+    if (pts.length === 2) return { kind: 'line', pts };
+
+    const a = pts[0], b = pts[pts.length - 1];
+    if (Math.abs(a[0] - b[0]) > 1e-9 || Math.abs(a[1] - b[1]) > 1e-9) pts.push([a[0], a[1]]);
+    return { kind: 'polygon', pts };
+}
+
+function describeGeom(g) {
+    if (g.kind === 'circle') {
+        return `<p><b>Центр:</b> ${formatDM(g.cLat)} С, ${formatDM(g.cLon)} В (радиус ${Math.round(g.radiusM)} м)</p>`;
+    }
+    const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
+    const label = g.kind === 'line' ? 'Линия, точек' : 'Точек распознано';
+    return `<p><b>${label}:</b> ${g.pts.length}</p><p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
+}
+
 function parseOne(rawText){
   const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
   if(!t)return null;
-  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТА\s+(\d+)/i);
-  if(!head)return null;
+  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТЫ?\s+(\d+)/i);
+  if(!head)return {error:'Не удалось разобрать заголовок ПРИП. Начало текста: «'+t.slice(0,60)+'…»',pripNum:'?',mapNum:'',city:''};
   const city=head[1].toUpperCase(),pripNum=head[2],mapNum=head[3];
-  
-  const areaM=t.match(/КАРТА\s+\d+\s+(.+?)\s*1\s*\./);
+
+  const areaM=t.match(/КАРТЫ?\s+\d+(?:\s+\d+)?\s+(.+?)\s+1\s*\.(?!\d)/);
   const area=areaM?areaM[1].trim():'';
-  const sec1M=t.match(/1\s*\.\s*(.+?)(?=\s*2\s*\.|\s*ОТМ\s+ЭТОТ)/);
+  const sec1M=t.match(/(?:^|\s)1\s*\.(?!\d)\s*(.+?)(?=\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ|$)/);
   const sec1=sec1M?sec1M[1].trim():'';
-  
+  const body=sec1||t;
+
   let cancel='';
   const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
   if(otmM){
@@ -166,82 +198,69 @@ function parseOne(rawText){
     else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`;
     else cancel=`${d} ${monthFull(mon)}`;
   }
-  
+
   let typeLabel,color,fillColor;
   if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ/i.test(sec1)){typeLabel='Стрельбы / Учения';color='ff0000ff';fillColor='4d0000ff'}
   else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';color='ff00a5ff';fillColor='4d00a5ff'}
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';color='ffff00ff';fillColor='4dff00ff'}
   else{typeLabel='Специальные работы';color='ffff0000';fillColor='4dff0000'}
-  
+
   let period='';
   const pM=sec1.match(/(\d{1,2})\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})\s+([А-ЯЁ]{3,})/i);
   if(pM){
     const d1=parseInt(pM[1],10),m1=pM[2],d2=parseInt(pM[3],10),m2=pM[4];
     period=m1?`${d1} ${monthFull(m1)} – ${d2} ${monthFull(m2)}`:`${d1}–${d2} ${monthFull(m2)}`;
   }
-  
+
   let hours='';
   const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/);
   if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`;
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
-  
-  let geometry;
-  const circM=t.match(/РАДИУСОМ\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))\s*(?:ИЗ|ОТ)?/i);
-  
-  if(circM){
-    const rVal=parseFloat(circM[1].replace(',','.'));
-    const rUnit=circM[2].toUpperCase();
-    let radiusM = rVal;
-    if (rUnit.startsWith('МИЛ')) radiusM *= 1852;
-    else if (rUnit.startsWith('КМ')) radiusM *= 1000;
-    
-    const tokens = extractCoordinates(t);
-    if(tokens.length < 1) return {error:'Не удалось найти координаты центра круга',pripNum,mapNum,city};
-    
-    const cLon = tokens[0][0];
-    const cLat = tokens[0][1];
-    
-    const pts=[];
-    for(let i=0;i<=36;i++){
-      const a=(i*10)*Math.PI/180;
-      const lat=cLat+(radiusM*Math.cos(a))/111320;
-      const lon=cLon+(radiusM*Math.sin(a))/(111320*Math.cos(cLat*Math.PI/180));
-      pts.push([lon,lat]);
-    }
-    geometry={kind:'circle',pts,radiusM,cLat,cLon};
-  }else{
-    const pts = extractCoordinates(t);
-    
-    if(pts.length>1){
-      const a=pts[0],b=pts[pts.length-1];
-      if(Math.abs(a[0]-b[0])>1e-9||Math.abs(a[1]-b[1])>1e-9)pts.push([a[0],a[1]]);
-    }
-    if(pts.length<3)return{error:'Не удалось выделить координаты района (менее 3 точек)',pripNum,mapNum,city};
-    geometry={kind:'polygon',pts};
+
+  const zones = [];
+  let singleGeometry = null;
+
+  // Несколько районов (А. РАЙОН ..., Б. РАЙОН ...). Буква не должна быть концом другого слова.
+  const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК))/i);
+
+  if (zoneParts.length > 1) {
+      for (let i = 1; i < zoneParts.length; i++) {
+          const part = zoneParts[i].trim();
+          const nameM = part.match(/^([А-ЯA-Z])\./i);
+          const name = nameM ? nameM[1].toUpperCase() : String(i);
+          const g = buildGeometry(part);
+          if (g) zones.push({ name, geometry: g });
+      }
+      if (!zones.length) return {error:'Районы найдены, но координаты не распознаны',pripNum,mapNum,city};
+  } else {
+      singleGeometry = buildGeometry(body);
+      if (!singleGeometry) return {error:'Не удалось выделить координаты района (нужно минимум 2 точки или центр круга)',pripNum,mapNum,city};
   }
-  
+
   const notes=[];
   if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
+  if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована (построены прямые между точками)');
   if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
   if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
   if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
-  
-  return{city,pripNum,mapNum,area,sec1,typeLabel,color,fillColor,period,hours,cancel,geometry,notes};
+
+  return{city,pripNum,mapNum,area,sec1,typeLabel,color,fillColor,period,hours,cancel,zones,singleGeometry,notes};
+}
+
+function geomToKml(g, dLon, dLat){
+  const coords = g.pts.map(([lon,lat]) => `              ${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
+  if (g.kind === 'line') {
+    return `<LineString><tessellate>1</tessellate><coordinates>\n${coords}\n</coordinates></LineString>`;
+  }
+  return `<Polygon><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><outerBoundaryIs><LinearRing><coordinates>\n${coords}\n</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
 }
 
 function buildKML(items, isSK42){
-  const placemarks=items.map(p=>{
-    let dLat = 0, dLon = 0;
-    if (isSK42) {
-      dLat = 0.0014; dLon = -0.0020;
-    }
+  const allPlacemarks = [];
+  const dLat = isSK42 ? 0.0014 : 0;
+  const dLon = isSK42 ? -0.0020 : 0;
 
-    const coords=p.geometry.pts.map(([lon,lat])=>{
-      const finalLon = lon + dLon;
-      const finalLat = lat + dLat;
-      return `              ${finalLon.toFixed(6)},${finalLat.toFixed(6)},0`;
-    }).join('\n');
-
+  items.forEach((p, idx) => {
     const rows=[
       `<b>${xmlEscape(p.typeLabel)}</b>`,
       p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'',
@@ -249,32 +268,34 @@ function buildKML(items, isSK42){
       p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
       p.mapNum?`<b>Карта:</b> ${xmlEscape(p.mapNum)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
-      isSK42?`<i>Применена поправка СК-42 → WGS-84.</i><br/>`:'',
+      isSK42?`<i>Применена приблизительная поправка СК-42 → WGS-84.</i>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean).join('<br/>');
-    return `    <Placemark>
+
+    if (p.zones && p.zones.length > 0) {
+        p.zones.forEach(z => {
+            allPlacemarks.push(`    <Placemark>
+      <name>ПРИП ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
+      <description><![CDATA[${rows}]]></description>
+      <styleUrl>#s${idx}</styleUrl>
+      ${geomToKml(z.geometry, dLon, dLat)}
+    </Placemark>`);
+        });
+    } else if (p.singleGeometry) {
+        allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)}</name>
       <description><![CDATA[${rows}]]></description>
-      <styleUrl>#s${xmlEscape(p.pripNum)}</styleUrl>
-      <Polygon>
-        <tessellate>1</tessellate>
-        <altitudeMode>clampToGround</altitudeMode>
-        <outerBoundaryIs>
-          <LinearRing>
-            <coordinates>
-${coords}
-            </coordinates>
-          </LinearRing>
-        </outerBoundaryIs>
-      </Polygon>
-    </Placemark>`;
-  }).join('\n');
-  
-  const styles=items.map(p=>`    <Style id="s${xmlEscape(p.pripNum)}">
+      <styleUrl>#s${idx}</styleUrl>
+      ${geomToKml(p.singleGeometry, dLon, dLat)}
+    </Placemark>`);
+    }
+  });
+
+  const styles=items.map((p, idx)=>`    <Style id="s${idx}">
       <LineStyle><color>${p.color}</color><width>2</width></LineStyle>
       <PolyStyle><color>${p.fillColor}</color></PolyStyle>
     </Style>`).join('\n');
-  
+
   const firstName=items.length===1?`ПРИП ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
@@ -282,7 +303,7 @@ ${coords}
     <name>${xmlEscape(firstName)}</name>
     <description><![CDATA[Сгенерировано из текста ПРИП. Полигоны упрощены.]]></description>
 ${styles}
-${placemarks}
+${allPlacemarks.join('\n')}
   </Document>
 </kml>`;
 }
@@ -307,19 +328,18 @@ parseBtn.onclick=()=>{
   preview.innerHTML='';parsed=[];dlBtn.disabled=true;
   let text=input.value.trim();
   if(!text)return;
-  
+
   text = text.replace(/[–—‑]/g, '-');
   text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
+  text = fixOcr(text);
   text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
-  
-  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТА)/i).map(s=>s.trim()).filter(s=>s);
-  
-  if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
-  
-  for(const p of parts){
-    if (!p.match(/\d+-\d+/)) continue;
 
+  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТЫ?)/i).map(s=>s.trim()).filter(s=>s);
+
+  if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
+
+  for(const p of parts){
     const r=parseOne(p);
     if(!r){continue}
     if(r.error){
@@ -327,15 +347,15 @@ parseBtn.onclick=()=>{
       continue;
     }
     parsed.push(r);
-    
+
     let coordsStr = '';
-    let ptsList = '';
-    
-    if (r.geometry.kind === 'circle') {
-      coordsStr = `<p><b>Центр (DM):</b> ${formatDM(r.geometry.cLat)} С, ${formatDM(r.geometry.cLon)} В (Радиус: ${r.geometry.radiusM} м)</p>`;
-    } else {
-      ptsList = r.geometry.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
-      coordsStr = `<p><b>Точек распознано:</b> ${r.geometry.pts.length}</p><p style="font-size:11px;color:#aaa;margin-top:2px">${ptsList}</p>`;
+    if (r.zones && r.zones.length > 0) {
+        coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
+        r.zones.forEach(z => {
+            coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
+        });
+    } else if (r.singleGeometry) {
+        coordsStr = describeGeom(r.singleGeometry);
     }
 
     preview.insertAdjacentHTML('beforeend',`<div class="card">
