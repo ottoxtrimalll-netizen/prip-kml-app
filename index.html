@@ -77,7 +77,7 @@ input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;acce
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
     Участки «далее по береговой линии» и «между берегом и…» заменяются прямыми; береговая линия и острова не моделируются — это отмечается в описании каждого района.
   </p>
-  <div class="version">v2.6 (границы у берега, служебные заголовки)</div>
+  <div class="version">v2.7 (списки огней/знаков)</div>
 </div>
 
 <script>
@@ -216,26 +216,94 @@ function describeGeom(g) {
     return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
 }
 
+// Список точечных объектов вида «1. НАЗВАНИЕ 69-34.1С 032-50.5В НР 120  2. ...»
+// full = '1. ' + текст после первого «1.»; номера должны идти подряд 1,2,3...
+function parsePointItems(after1){
+  const full='1. '+after1;
+  const re=/(?<=^|\s)(\d{1,2})\s*\.(?!\d)\s*/g;
+  const marks=[];
+  let m, expect=1;
+  while((m=re.exec(full))!==null){
+    if(parseInt(m[1],10)===expect){
+      marks.push({n:expect,start:m.index,end:m.index+m[0].length});
+      expect++;
+    }
+  }
+  return marks.map((mk,i)=>{
+    const chunk=full.slice(mk.end, i+1<marks.length?marks[i+1].start:full.length).trim();
+    return {n:mk.n,chunk,pts:extractCoordinates(chunk)};
+  });
+}
+
+function chunkToPoints(it){
+  if(!it.pts.length)return [];
+  const idx=it.chunk.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}(?:[.,]\d+)?/);
+  const name=(idx>0?it.chunk.slice(0,idx):'').replace(/[\s,;:\-–]+$/,'').trim();
+  const nrM=it.chunk.match(/НР\s+(\d+(?:[\s,]+\d+(?![\d-]))*)/i);
+  const nr=nrM?nrM[1].replace(/[\s,]+/g,', '):'';
+  return it.pts.map((pt,k)=>({
+    n:it.n,
+    name:name||('Точка '+it.n),
+    suffix:it.pts.length>1?` (точка ${k+1})`:'',
+    nr,lon:pt[0],lat:pt[1]
+  }));
+}
+
+function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
+
 function parseOne(rawText){
-  const t=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
+  const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
+  if(!t0)return null;
+  // Сообщение заканчивается знаком «=»; дальше идёт время передачи и подпись («161000 МСК ГС-»)
+  const eq=t0.indexOf('=');
+  const t=(eq>=0?t0.slice(0,eq):t0).trim();
   if(!t)return null;
   const snippet=t.slice(0,160);
-  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТЫ?\s+(\d+)/i);
-  if(!head)return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
-  const city=head[1].toUpperCase(),pripNum=head[2],mapNum=head[3];
 
-  const areaM=t.match(/КАРТЫ?\s+\d+(?:\s+\d+)?\s+(.+?)\s+1\s*\.(?!\d)/);
-  const area=areaM?areaM[1].trim():'';
-  const sec1M=t.match(/(?:^|\s)1\s*\.(?!\d)\s*(.+?)(?=\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ|$)/);
-  const sec1=sec1M?sec1M[1].trim():'';
-  const body=sec1||t;
+  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
+  if(!head){
+    // Обрывок шапки вроде «ПРИП МУРМАНСК 388/26»
+    if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
+    return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
+  }
+  const city=head[1].toUpperCase(),pripNum=head[2];
+
+  // Все номера карт подряд, затем необязательная «КНИГА NNNN»
+  const mapsM=t.match(/КАРТ[АЫ]\s+((?:\d+\s+)+)/i);
+  const maps=mapsM?mapsM[1].trim().split(/\s+/):[head[3]];
+  const mapNum=maps.join(', ');
+  let rest=mapsM?t.slice(mapsM.index+mapsM[0].length):t.slice(head.index+head[0].length);
+  let book='';
+  const bookM=rest.match(/^КНИГА\s+(\d+)\s*/i);
+  if(bookM){book=bookM[1];rest=rest.slice(bookM[0].length)}
+
+  const startM=rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
 
   // Служебный заголовок передачи (например «ПРИП МУРМАНСК 396/26 … МУРМАНСК 01 22/10 1500=»):
   // нет раздела 1 и нет координат — это не само предупреждение.
-  if(!sec1M && extractCoordinates(t).length===0){
+  if(!startM && extractCoordinates(t).length===0){
     const full=t.match(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?/i);
     return {skip:true,label:full?full[0]:('ПРИП '+pripNum)};
   }
+
+  const areaRaw=startM?rest.slice(0,startM.index).trim():'';
+  const after1=startM?rest.slice(startM.index+startM[0].length):rest;
+
+  // Это список точечных объектов (огни/знаки/буи не действуют и т.п.)?
+  const items=parsePointItems(after1);
+  const withPts=items.filter(it=>it.pts.length>0);
+  const isList=!/РАДИУС/i.test(after1) &&
+               !items.some(it=>it.pts.length>=3) &&
+               (withPts.length>=2 || (withPts.length===1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw+' '+after1)));
+
+  let sec1;
+  if(isList){
+    sec1=after1.trim();
+  }else{
+    const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/);
+    sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim();
+  }
+  const body=sec1||t;
 
   let cancel='';
   const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
@@ -245,6 +313,23 @@ function parseOne(rawText){
     else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`;
     else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`;
     else cancel=`${d} ${monthFull(mon)}`;
+  }
+
+  const notes=[];
+  if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
+
+  if(isList){
+    const points=[];
+    items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
+    if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
+
+    // «БАРЕНЦЕВО МОРЕ ОГНИ ЗНАКОВ НЕ ДЕЙСТВУЮТ» → район + условие
+    const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i);
+    const sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw);
+    const cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
+    const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
+    return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,color:'ff00d7ff',fillColor:'4d00d7ff',
+           period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
   }
 
   let typeLabel,color,fillColor;
@@ -265,7 +350,6 @@ function parseOne(rawText){
   if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`;
   else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
 
-  const notes=[];
   const zones = [];
   let singleGeometry = null;
 
@@ -295,9 +379,8 @@ function parseOne(rawText){
   if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована (построены прямые между точками)');
   if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
   if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
-  if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
 
-  return{city,pripNum,mapNum,area,sec1,typeLabel,color,fillColor,period,hours,cancel,zones,singleGeometry,notes};
+  return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,color,fillColor,period,hours,cancel,zones,singleGeometry,points:[],notes};
 }
 
 function geomToKml(g, dLon, dLat){
@@ -319,17 +402,31 @@ function buildKML(items, isSK42){
       p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'',
       p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'',
       p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
-      p.mapNum?`<b>Карта:</b> ${xmlEscape(p.mapNum)}`:'',
+      p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'',
+      p.book?`<b>Книга:</b> ${xmlEscape(p.book)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
       isSK42?`<i>Применена приблизительная поправка СК-42 → WGS-84.</i>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
-    ].filter(Boolean).join('<br/>');
+    ].filter(Boolean);
 
-    if (p.zones && p.zones.length > 0) {
+    if (p.points && p.points.length > 0) {
+        p.points.forEach(pt => {
+            const ptRows = rows.slice();
+            ptRows.splice(1, 0, `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}`);
+            if (pt.nr) ptRows.splice(2, 0, `<b>НР:</b> ${xmlEscape(pt.nr)}`);
+            allPlacemarks.push(`    <Placemark>
+      <name>ПРИП ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name>
+      <description><![CDATA[${ptRows.join('<br/>')}]]></description>
+      <styleUrl>#s${idx}</styleUrl>
+      <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
+    </Placemark>`);
+        });
+    } else if (p.zones && p.zones.length > 0) {
+        const desc = rows.join('<br/>');
         p.zones.forEach(z => {
             allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
-      <description><![CDATA[${rows}]]></description>
+      <description><![CDATA[${desc}]]></description>
       <styleUrl>#s${idx}</styleUrl>
       ${geomToKml(z.geometry, dLon, dLat)}
     </Placemark>`);
@@ -337,17 +434,25 @@ function buildKML(items, isSK42){
     } else if (p.singleGeometry) {
         allPlacemarks.push(`    <Placemark>
       <name>ПРИП ${xmlEscape(p.pripNum)}</name>
-      <description><![CDATA[${rows}]]></description>
+      <description><![CDATA[${rows.join('<br/>')}]]></description>
       <styleUrl>#s${idx}</styleUrl>
       ${geomToKml(p.singleGeometry, dLon, dLat)}
     </Placemark>`);
     }
   });
 
-  const styles=items.map((p, idx)=>`    <Style id="s${idx}">
+  const styles=items.map((p, idx)=>{
+    if (p.points && p.points.length > 0) {
+      return `    <Style id="s${idx}">
+      <IconStyle><color>${p.color}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
+      <LabelStyle><scale>0.8</scale></LabelStyle>
+    </Style>`;
+    }
+    return `    <Style id="s${idx}">
       <LineStyle><color>${p.color}</color><width>2</width></LineStyle>
       <PolyStyle><color>${p.fillColor}</color></PolyStyle>
-    </Style>`).join('\n');
+    </Style>`;
+  }).join('\n');
 
   const firstName=items.length===1?`ПРИП ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -388,7 +493,7 @@ parseBtn.onclick=()=>{
   text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
 
-  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТЫ?)/i).map(s=>s.trim()).filter(s=>s);
+  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
 
   if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
 
@@ -411,6 +516,9 @@ parseBtn.onclick=()=>{
         r.zones.forEach(z => {
             coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
         });
+    } else if (r.points && r.points.length > 0) {
+        const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat)} С, ${formatDM(pt.lon)} В${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
+        coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><p style="font-size:12px;color:#aaa;margin-top:2px">${list}</p>`;
     } else if (r.singleGeometry) {
         coordsStr = describeGeom(r.singleGeometry);
     }
@@ -423,7 +531,7 @@ parseBtn.onclick=()=>{
         ${r.hours?`<span class="tag">${xmlEscape(r.hours)}</span>`:''}
       </div>
       <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
-      <p><b>Карта:</b> ${xmlEscape(r.mapNum)}</p>
+      <p><b>Карты:</b> ${xmlEscape(r.mapNum)}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
       ${coordsStr}
       ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
       ${r.notes.length?`<p style="color:#888"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
