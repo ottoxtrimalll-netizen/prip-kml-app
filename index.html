@@ -283,9 +283,17 @@ function chunkToPoints(it){
 function parseOne(rawText){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
+  
+  // ИСПРАВЛЕНО: Берем самый первый заголовок. Если внутри есть дубли (типа ПРИП МУРМАНСК 409), мы их вырежем.
   const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+(.+)/i);
   if (!head) { if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
-  const city = head[1].toUpperCase(), pripNum = head[2]; let rest = head[3];
+  
+  const city = head[1].toUpperCase(), pripNum = head[2]; 
+  let rest = head[3];
+  
+  // ВЫРЕЗАЕМ ВСЕ ДУБЛИРУЮЩИЕСЯ ЗАГОЛОВКИ ВНУТРИ ТЕКСТА (если они есть)
+  rest = rest.replace(/ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s*/gi, '');
+
   let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
   if (mapsM) { mapNum = mapsM[1].trim().split(/\s+/).join(', '); rest = rest.slice(mapsM[0].length); }
   let book = ''; const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
