@@ -2,160 +2,266 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
 <title>NavAhead — ПРИП в KML</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
 <style>
 :root {
   --bg-color: #0f172a;
-  --card-bg: rgba(30, 41, 59, 0.7);
+  --card-bg: rgba(30, 41, 59, 0.85);
   --text-main: #e2e8f0;
   --text-muted: #94a3b8;
   --accent: #38bdf8;
   --accent-hover: #0284c7;
   --danger: #ef4444;
-  --border: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.08);
 }
 
-*{box-sizing:border-box}
+*{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  margin:0; padding:16px;
-  /* Красивый морской градиент */
-  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
-  background-attachment: fixed;
+  margin:0; padding:0 0 100px 0; /* Отступ для FAB кнопки */
   color: var(--text-main);
   min-height: 100vh;
+  /* Фон с сеткой (морская карта) */
+  background-color: var(--bg-color);
+  background-image: 
+    linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
+    radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+  background-size: 40px 40px, 40px 40px, 100% 100%;
+  background-attachment: fixed;
 }
 
-.container{max-width:720px;margin:0 auto}
-
-.header { text-align: center; margin-bottom: 20px; }
-.header h1{
-  font-size: 1.8em; margin:0 0 4px;
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
+/* Sticky Header */
+header {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.7);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+}
+header svg { width: 32px; height: 32px; fill: url(#grad); }
+.header-title {
+  font-size: 1.6em; font-weight: 800; letter-spacing: 0.5px;
+  background: linear-gradient(90deg, #38bdf8, #a78bfa);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
-  font-weight: 800;
-  letter-spacing: 1px;
+  margin: 0;
 }
-.header p { margin: 0; color: var(--text-muted); font-size: 14px; }
 
+.container{max-width:720px;margin:0 auto; padding: 16px;}
+
+/* Input Wrapper */
+.input-wrapper { position: relative; margin-bottom: 16px; }
 textarea{
-  width:100%; min-height:150px; padding:14px;
-  border:1px solid var(--border); border-radius:12px;
+  width:100%; min-height:160px; padding:16px;
+  border:1px solid var(--border); border-radius:16px;
   background: rgba(15, 23, 42, 0.6);
   color: var(--text-main);
-  font-family: inherit; font-size:14px; resize:vertical;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
-  transition: border-color 0.3s;
+  font-family: 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.5;
+  resize:vertical;
+  box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
+  transition: border-color 0.3s, box-shadow 0.3s;
 }
-textarea:focus { outline:none; border-color: var(--accent); }
+textarea:focus { outline:none; border-color: var(--accent); box-shadow: inset 0 2px 10px rgba(0,0,0,0.3), 0 0 15px rgba(56, 189, 248, 0.2); }
 
-/* Панель настроек (Стекло) */
+.input-actions {
+  position: absolute; top: 12px; right: 12px; display: flex; gap: 8px;
+}
+.btn-icon {
+  background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
+  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
+  color: var(--text-muted); cursor: pointer; font-size: 16px; transition: background 0.2s;
+}
+.btn-icon:hover { background: rgba(255,255,255,0.2); color: #fff; }
+
+/* Settings Panel */
 .settings-panel {
-  display: flex; justify-content: space-between; align-items: center;
-  flex-wrap: wrap; gap: 10px;
-  margin: 16px 0;
-  padding: 12px 16px;
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border-radius: 12px;
-  border: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
+  margin-bottom: 16px; padding: 16px;
+  background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--border);
 }
 
-label.settings-label{
-  display:inline-flex; align-items:center; font-size:14px;
-  color: var(--text-main); cursor:pointer; font-weight: 500;
+/* iOS Style Toggle */
+.toggle-wrapper { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.toggle-wrapper span { font-size: 14px; font-weight: 500; color: var(--text-main); }
+.toggle { position: relative; width: 48px; height: 28px; }
+.toggle input { opacity: 0; width: 0; height: 0; }
+.slider {
+  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+  background-color: #334155; transition: .4s; border-radius: 34px;
 }
-input[type="checkbox"]{
-  margin-right:8px; transform:scale(1.2); cursor:pointer; accent-color:var(--accent);
+.slider:before {
+  position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px;
+  background-color: white; transition: .4s; border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
 }
+input:checked + .slider { background-color: var(--accent); }
+input:checked + .slider:before { transform: translateX(20px); }
 
-/* Палитра цветов */
-.color-row{display:flex; gap:16px; flex-wrap:wrap;}
-.color-picker{display:flex; align-items:center; font-size:13px; color:var(--text-muted); font-weight:600;}
+/* Цвета */
+.color-row{display:flex; gap:16px;}
+.color-picker{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); font-weight:600; cursor:pointer;}
 input[type="color"]{
-  margin-left:8px; border:1px solid var(--border); border-radius:6px;
-  width:32px; height:32px; padding:0; background:none; cursor:pointer; vertical-align:middle;
+  -webkit-appearance: none; border:none; width:36px; height:36px; border-radius:50%;
+  padding:0; background:none; cursor:pointer; box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
+  transition: transform 0.2s;
 }
+input[type="color"]:active { transform: scale(0.9); }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
-/* Кнопки */
-.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
-button{
-  flex: 1; min-width: 120px; padding:14px 20px;
-  border:none; border-radius:10px;
-  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
-  color:#fff; font-size:15px; font-weight:600; cursor:pointer;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
-  transition: transform 0.1s, box-shadow 0.2s;
+/* Main Buttons */
+.actions { display: flex; gap: 12px; margin-bottom: 24px; }
+button.btn-main{
+  flex: 1; padding:16px 20px; border:none; border-radius:14px;
+  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
+  color:#fff; font-size:16px; font-weight:700; cursor:pointer;
+  box-shadow: 0 6px 0 #075985, 0 10px 15px rgba(0,0,0,0.3);
+  transition: transform 0.1s, box-shadow 0.1s;
 }
-button:hover { box-shadow: 0 6px 12px rgba(56, 189, 248, 0.3); }
-button:active { transform: scale(0.98); }
-button:disabled { background: #334155; color: #64748b; box-shadow: none; cursor: not-allowed; }
-button.danger{ background: linear-gradient(135deg, #ef4444, #b91c1c); box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
-button.danger:hover { box-shadow: 0 6px 12px rgba(239, 68, 68, 0.3); }
+button.btn-main:active { transform: translateY(6px); box-shadow: 0 0px 0 #075985, 0 4px 10px rgba(0,0,0,0.3); }
+button.btn-main:disabled { background: #334155; box-shadow: 0 6px 0 #1e293b; color: #64748b; transform: none; cursor: not-allowed; }
 
-/* Карточки превью */
-.preview{margin:16px 0}
-.card{
-  background: var(--card-bg);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border:1px solid var(--border);
-  border-radius:12px; padding:16px; margin-bottom:12px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+/* FAB (Плавающая кнопка) */
+.fab {
+  position: fixed; bottom: 24px; right: 24px; z-index: 1000;
+  width: 64px; height: 64px; border-radius: 50%;
+  background: linear-gradient(135deg, #10b981, #059669);
+  color: white; border: none; font-size: 28px;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), 0 0 0 4px rgba(16, 185, 129, 0.2);
+  cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+  transform: translateY(100px) scale(0); opacity: 0;
 }
-.card h3{margin:0 0 10px; font-size:1.1em; color:var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px;}
-.card p{margin:6px 0; font-size:14px; color: var(--text-main);}
-.row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px}
-.tag{display:inline-block; padding:4px 10px; border-radius:20px; background:rgba(56, 189, 248, 0.15); color:var(--accent); font-size:12px; font-weight: 600;}
+.fab.visible { transform: translateY(0) scale(1); opacity: 1; }
+.fab:active { transform: scale(0.9); }
+
+/* Сворачиваемые карточки */
+details.card {
+  background: var(--card-bg); backdrop-filter: blur(10px);
+  border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px;
+  overflow: hidden; position: relative;
+  transition: background 0.3s;
+}
+details.card[open] { background: rgba(30, 41, 59, 0.95); border-color: rgba(56, 189, 248, 0.4); }
+
+/* Цветная полоса слева */
+details.card::before {
+  content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 6px;
+  background-color: var(--card-color, var(--accent)); border-radius: 16px 0 0 16px;
+}
+
+summary.card-header {
+  padding: 16px 16px 16px 24px; cursor: pointer; list-style: none;
+  display: flex; flex-direction: column; gap: 6px;
+}
+summary.card-header::-webkit-details-marker { display: none; }
+.card-title { font-size: 1.1em; font-weight: 700; color: var(--accent); margin: 0; display: flex; align-items: center; justify-content: space-between;}
+.card-meta { font-size: 13px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;}
+
+/* Контент карточки */
+.card-body { padding: 0 16px 16px 24px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; font-size: 14px;}
+.card-body p { margin: 8px 0; }
+.tag { display:inline-block; padding:4px 10px; border-radius:20px; background:rgba(56, 189, 248, 0.15); color:var(--accent); font-size:12px; font-weight: 600;}
 .err{background:rgba(127, 29, 29, 0.8); color:#fca5a5; border:1px solid #991b1b; padding:12px; border-radius:10px; margin:8px 0; font-size:13px}
 .warn{color:#fbbf24; font-size:13px; margin:6px 0; background: rgba(251, 191, 36, 0.1); padding: 8px; border-radius: 6px;}
 .skip{font-size:13px; color:var(--text-muted); margin:0 0 12px; padding-left: 8px; border-left: 2px solid var(--text-muted);}
 .zone-box{margin-top:12px; border-top:1px dashed var(--border); padding-top:12px;}
+.coords-list { font-size: 12px; color: #cbd5e1; line-height: 1.6; font-family: 'SF Mono', monospace;}
+
+/* Спиннер загрузки */
+.spinner-overlay {
+  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
+  background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
+  z-index: 2000; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+.spinner {
+  width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1);
+  border-top-color: var(--accent); border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Toast Уведомление */
+.toast {
+  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
+  background: #10b981; color: white; padding: 12px 24px; border-radius: 30px;
+  font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+  opacity: 0; transition: all 0.3s; z-index: 3000; pointer-events: none;
+  display: flex; align-items: center; gap: 8px;
+}
+.toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
 .info{font-size:12px; color:var(--text-muted); margin-top:24px; line-height:1.6; text-align: center;}
 .version{text-align:center; font-size:12px; color:#475569; margin-top:16px; font-family: monospace;}
 </style>
 </head>
 <body>
+<!-- Скрытый SVG градиент для иконки -->
+<svg width="0" height="0"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs></svg>
+
+<header>
+  <!-- Иконка штурвала/радара -->
+  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="url(#grad)"/>
+    <path d="M12 6v6l4 2" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+  </svg>
+  <h1 class="header-title">NavAhead</h1>
+</header>
+
 <div class="container">
-  <div class="header">
-    <h1>NavAhead</h1>
-    <p>Конвертер ПРИП в навигационный KML</p>
+  <div class="input-wrapper">
+    <textarea id="input" placeholder="Вставьте текст ПРИП (Мурманск, Архангельск, любой регион)..."></textarea>
+    <div class="input-actions">
+      <button class="btn-icon" id="pasteBtn" title="Вставить из буфера">📋</button>
+      <button class="btn-icon" id="clearBtn" title="Очистить">✕</button>
+    </div>
   </div>
 
-  <textarea id="input" placeholder="Вставьте сюда текст ПРИП (Мурманск, Архангельск, любой регион)..."></textarea>
-
   <div class="settings-panel">
-    <label class="settings-label">
-      <input type="checkbox" id="sk42">
-      Пулково-42 (приблизит. поправка)
+    <label class="toggle-wrapper">
+      <div class="toggle">
+        <input type="checkbox" id="sk42">
+        <span class="slider"></span>
+      </div>
+      <span>Пулково-42 (поправка)</span>
     </label>
     
     <div class="color-row">
-      <label class="color-picker">Цвет района <input type="color" id="colorFill" value="#ff0000"></label>
-      <label class="color-picker">Цвет точек <input type="color" id="colorPoint" value="#00d7ff"></label>
+      <label class="color-picker">🗺️ <input type="color" id="colorFill" value="#ff0000" title="Цвет района"></label>
+      <label class="color-picker">📍 <input type="color" id="colorPoint" value="#00d7ff" title="Цвет точек"></label>
     </div>
   </div>
 
   <div class="actions">
-    <button id="parse">Обработать</button>
-    <button id="clear" class="danger">Сброс</button>
-    <button id="download" disabled>Скачать KML</button>
+    <button id="parse" class="btn-main">Обработать</button>
   </div>
 
-  <div id="preview" class="preview"></div>
+  <div id="preview"></div>
   
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
   </p>
-  <div class="version">v4.0 (Морской интерфейс)</div>
+  <div class="version">v5.0 (Native Feel)</div>
 </div>
+
+<!-- Плавающая кнопка скачивания -->
+<button id="download" class="fab" title="Скачать KML">💾</button>
+
+<!-- Оверлей загрузки -->
+<div class="spinner-overlay" id="spinner">
+  <div class="spinner"></div>
+  <div style="font-weight:600; color:var(--accent)">Обработка текста...</div>
+</div>
+
+<!-- Уведомление -->
+<div class="toast" id="toast">✅ Файл KML успешно скачан</div>
 
 <script>
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
@@ -299,7 +405,7 @@ function describeGeom(g) {
     if (g.crossesAntimeridian) {
         warn += `<p class="warn">⚠ Внимание! Район пересекает 180-й меридиан. В некоторых навигаторах он может отобразиться через всю карту.</p>`;
     }
-    return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.4">${list}</p>`;
+    return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<div class="coords-list">${list}</div>`;
 }
 
 function parsePointItems(after1){
@@ -473,12 +579,11 @@ function geomToKml(g, dLon, dLat){
 }
 
 function buildKML(items, isSK42){
-  // Берем цвет района и используем его как для заливки, так и для контура (чтобы работало в AlpineQuest)
   const hexFill = document.getElementById('colorFill').value;
   const hexPoint = document.getElementById('colorPoint').value;
 
-  const colorLine = hexToKml(hexFill, 'ff'); // Контур того же цвета, но непрозрачный
-  const colorFill = hexToKml(hexFill, '4d'); // Заливка прозрачная 30%
+  const colorLine = hexToKml(hexFill, 'ff');
+  const colorFill = hexToKml(hexFill, '4d');
   const colorPoint = hexToKml(hexPoint, 'ff');
 
   const allPlacemarks = [];
@@ -546,7 +651,7 @@ function buildKML(items, isSK42){
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
     <name>${xmlEscape(firstName)}</name>
-    <description><![CDATA[Сгенерировано из текста ПРИП. Полигоны упрощены.]]></description>
+    <description><![CDATA[Сгенерировано в NavAhead. Полигоны упрощены.]]></description>
 ${styles}
 ${allPlacemarks.join('\n')}
   </Document>
@@ -556,79 +661,132 @@ ${allPlacemarks.join('\n')}
 const input=document.getElementById('input');
 const parseBtn=document.getElementById('parse');
 const dlBtn=document.getElementById('download');
-const clearBtn=document.getElementById('clear');
+const clearBtn=document.getElementById('clearBtn');
+const pasteBtn=document.getElementById('pasteBtn');
 const preview=document.getElementById('preview');
 const sk42Checkbox=document.getElementById('sk42');
+const spinner=document.getElementById('spinner');
+const toast=document.getElementById('toast');
 let parsed=[];
 
+function vibrate(ms=50) { if(navigator.vibrate) navigator.vibrate(ms); }
+
+function showToast(msg) {
+  toast.innerHTML = msg;
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 3000);
+}
+
 clearBtn.onclick=()=>{
+  vibrate(20);
   input.value='';
   preview.innerHTML='';
   parsed=[];
-  dlBtn.disabled=true;
+  dlBtn.classList.remove('visible');
   input.focus();
 };
 
-parseBtn.onclick=()=>{
-  preview.innerHTML='';parsed=[];dlBtn.disabled=true;
-  let text=input.value.trim();
-  if(!text)return;
-
-  text = text.replace(/[–—‑]/g, '-');
-  text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
-  text = fixOcr(text);
-  text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
-  text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
-
-  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
-
-  if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
-
-  for(const p of parts){
-    const r=parseOne(p);
-    if(!r){continue}
-    if(r.skip){
-      preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
-      continue;
-    }
-    if(r.error){
-      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
-      continue;
-    }
-    parsed.push(r);
-
-    let coordsStr = '';
-    if (r.zones && r.zones.length > 0) {
-        coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
-        r.zones.forEach(z => {
-            coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
-        });
-    } else if (r.points && r.points.length > 0) {
-        const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
-        coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><p style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.4">${list}</p>`;
-    } else if (r.singleGeometry) {
-        coordsStr = describeGeom(r.singleGeometry);
-    }
-
-    preview.insertAdjacentHTML('beforeend',`<div class="card">
-      <h3>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</h3>
-      <div class="row">
-        <span class="tag">${xmlEscape(r.typeLabel)}</span>
-        ${r.period?`<span class="tag">${xmlEscape(r.period)}</span>`:''}
-        ${r.hours?`<span class="tag">${xmlEscape(r.hours)}</span>`:''}
-      </div>
-      <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
-      <p><b>Карты:</b> ${xmlEscape(r.mapNum)}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
-      ${coordsStr}
-      ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
-      ${r.notes.length?`<p style="color:#94a3b8;font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
-    </div>`);
+pasteBtn.onclick=async ()=>{
+  vibrate(20);
+  try {
+    const text = await navigator.clipboard.readText();
+    input.value = text;
+    input.focus();
+  } catch (err) {
+    showToast('❌ Нет доступа к буферу обмена');
   }
-  dlBtn.disabled=parsed.length===0;
+};
+
+parseBtn.onclick=()=>{
+  vibrate(50);
+  const rawText = input.value.trim();
+  if(!rawText) return;
+  
+  spinner.style.display = 'flex';
+  
+  // Небольшая задержка для визуального эффекта загрузки
+  setTimeout(() => {
+    preview.innerHTML='';parsed=[];
+    let text = rawText;
+    
+    text = text.replace(/[–—‑]/g, '-');
+    text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
+    text = fixOcr(text);
+    text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
+    text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
+
+    const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
+
+    if(!parts.length){
+      preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';
+      spinner.style.display = 'none';
+      return;
+    }
+
+    for(const p of parts){
+      const r=parseOne(p);
+      if(!r){continue}
+      if(r.skip){
+        preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
+        continue;
+      }
+      if(r.error){
+        preview.insertAdjacentHTML('beforeend',`<div class="card" style="padding:16px; border-left-color:var(--danger)"><h3 style="color:var(--danger); margin-bottom:8px;">Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
+        continue;
+      }
+      parsed.push(r);
+
+      let coordsStr = '';
+      if (r.zones && r.zones.length > 0) {
+          coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
+          r.zones.forEach(z => {
+              coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
+          });
+      } else if (r.points && r.points.length > 0) {
+          const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
+          coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
+      } else if (r.singleGeometry) {
+          coordsStr = describeGeom(r.singleGeometry);
+      }
+
+      // Берем текущий цвет для полосы
+      const currentColor = document.getElementById('colorFill').value;
+
+      preview.insertAdjacentHTML('beforeend',`
+      <details class="card" style="--card-color: ${currentColor}">
+        <summary class="card-header">
+          <div class="card-title">
+            <span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span>
+            <span style="font-size:12px; color:var(--text-muted);">▼</span>
+          </div>
+          <div class="card-meta">
+            <span class="tag">${xmlEscape(r.typeLabel)}</span>
+            ${r.period ? `<span>📅 ${xmlEscape(r.period)}</span>` : ''}
+            ${r.hours ? `<span>⏱ ${xmlEscape(r.hours)}</span>` : ''}
+          </div>
+        </summary>
+        <div class="card-body">
+          <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
+          <p><b>Карты:</b> ${xmlEscape(r.mapNum)}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
+          ${coordsStr}
+          ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
+          ${r.notes.length?`<p style="color:var(--text-muted);font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
+        </div>
+      </details>`);
+    }
+    
+    if(parsed.length > 0) {
+      dlBtn.classList.add('visible');
+    } else {
+      dlBtn.classList.remove('visible');
+    }
+    spinner.style.display = 'none';
+  }, 300); // 300мс задержка
 };
 
 dlBtn.onclick=()=>{
   if(!parsed.length)return;
+  vibrate([50, 50, 50]); // Двойная вибрация для скачивания
   const applySK42 = sk42Checkbox.checked;
   const kml=buildKML(parsed, applySK42);
   
@@ -651,6 +809,8 @@ dlBtn.onclick=()=>{
   a.href=URL.createObjectURL(blob);a.download=name;
   document.body.appendChild(a);a.click();a.remove();
   setTimeout(()=>URL.revokeObjectURL(a.href),1500);
+  
+  showToast('✅ KML файл сохранен');
 };
 
 if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
