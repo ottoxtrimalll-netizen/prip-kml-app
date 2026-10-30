@@ -239,6 +239,7 @@ function extractCoordinates(text) {
 function orient(o, a, b){ return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
 function segCross(p1, p2, p3, p4){ const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2), d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4); return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)); }
 function ringSelfIntersects(ring){ const n = ring.length; for (let i = 0; i < n; i++) { for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; if (segCross(ring[i], ring[(i+1)%n], ring[j], ring[(j+1)%n])) return true; } } return false; }
+
 function buildGeometry(text) {
     const circM = text.match(/РАДИУС[А-ЯЁ]*\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))/i);
     const pts = extractCoordinates(text);
@@ -250,20 +251,30 @@ function buildGeometry(text) {
         for (let i = 0; i <= 36; i++) { const a = (i * 10) * Math.PI / 180, lat = cLat + (radiusM * Math.cos(a)) / 111320, lon = cLon + (radiusM * Math.sin(a)) / (111320 * Math.cos(cLat * Math.PI / 180)); ring.push([lon, lat]); }
         return { kind: 'circle', pts: ring, radiusM, cLat, cLon };
     }
-    if (pts.length < 2) return null;
+    
+    if (pts.length === 0) return null;
+    if (pts.length === 1) return { kind: 'point', pts: pts };
+    if (pts.length === 2) return { kind: 'line', pts: pts };
+    
     const ring = pts.slice(), f = ring[0], l = ring[ring.length - 1];
     if (ring.length > 1 && Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) ring.pop();
     if (ring.length < 2) return null;
+    
     const maxLon = Math.max(...ring.map(p=>p[0])), minLon = Math.min(...ring.map(p=>p[0])), crossesAntimeridian = (maxLon - minLon) > 180;
-    if (ring.length === 2) return { kind: 'line', pts: ring, crossesAntimeridian };
     if (ringSelfIntersects(ring)) return { kind: 'line', pts: ring, openBorder: true, crossesAntimeridian };
+    
     const closed = ring.slice(); closed.push([ring[0][0], ring[0][1]]);
     return { kind: 'polygon', pts: closed, crossesAntimeridian };
 }
+
 function describeGeom(g) {
     if (g.kind === 'circle') return `<p><b>Центр:</b> ${formatDM(g.cLat, true)}, ${formatDM(g.cLon, false)} (радиус ${Math.round(g.radiusM)} м)</p>`;
     const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1], true)}, ${formatDM(pt[0], false)}`).join('<br>');
-    const label = g.kind === 'line' ? 'Линия, точек' : 'Точек распознано';
+    
+    let label = 'Точек распознано';
+    if (g.kind === 'line') label = 'Линия, точек';
+    if (g.kind === 'point') label = 'Координата';
+    
     let warn = '';
     if (g.openBorder) warn += `<p class="warn">⚠ Контур не замкнут (самопересечение).</p>`;
     if (g.crossesAntimeridian) warn += `<p class="warn">⚠ Пересечение 180-го меридиана!</p>`;
@@ -284,7 +295,6 @@ function parseOne(rawText){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
   
-  // ИСПРАВЛЕНО: Берем самый первый заголовок. Дубли внутри были удалены до этой функции.
   const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+(.+)/i);
   if (!head) { if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
   
@@ -297,14 +307,25 @@ function parseOne(rawText){
   if (bookM) { book = bookM[1]; rest = rest.slice(bookM[0].length); }
   const startM = rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
   if(!startM && extractCoordinates(t).length===0) return {skip:true, label:`ПРИП ${city} ${pripNum}`};
-  const areaRaw = startM ? rest.slice(0, startM.index).trim() : '', after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
+  
+  let areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
+  
+  // Если нет секции "1.", берем текст до координат как название объекта
+  if (!areaRaw) {
+      const firstCoordIdx = rest.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}/);
+      areaRaw = firstCoordIdx > 0 ? rest.slice(0, firstCoordIdx).trim() : '';
+  }
+
+  const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
   const items = parsePointItems(after1), withPts = items.filter(it => it.pts.length > 0);
   const isList = !/РАДИУС/i.test(after1) && !items.some(it => it.pts.length >= 3) && (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
   let sec1; if(isList){ sec1=after1.trim(); }else{ const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/); sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim(); }
   const body=sec1||t;
+  
   let cancel=''; const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
   if(otmM){ const d=otmM[1],mon=otmM[2].toUpperCase(); if(d.length===6)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`; else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`; else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`; else cancel=`${d} ${monthFull(mon)}`; }
   const notes=[]; if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('соблюдать осторожность');
+  
   if(isList){
     const points=[]; items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
     if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
@@ -312,11 +333,18 @@ function parseOne(rawText){
     const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
     return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
   }
+  
   let typeLabel;
-  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ|ПУСКИ/i.test(sec1)){typeLabel='Стрельбы / Пуски / Учения';} else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';} else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';} else{typeLabel='Специальные работы';}
+  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ|ПУСКИ/i.test(sec1)){typeLabel='Стрельбы / Пуски / Учения';} 
+  else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';} 
+  else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';} 
+  else if(/ПРЕПЯТСТВИЕ|ЗАТОНУВШ|ЯКОРЬ|БОЧКА|БУЙ|ОГОНЬ/i.test(sec1)){typeLabel='Опасность / Объект';}
+  else{typeLabel='Специальные работы';}
+  
   let period=''; const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
   if(pM){ const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6]; let str = `${d1} ${monthFull(m1||m2)}`; if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`; str += ` – ${d2} ${monthFull(m2)}`; if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`; period = str; }
   let hours=''; const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/); if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`; else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
+  
   const zones = []; let singleGeometry = null; const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])(?<!\d\s{0,3})[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК|\d{1,3}\s*-\s*\d{1,2}))/i);
   if (zoneParts.length > 1) {
       for (let i = 1; i < zoneParts.length; i++) { const part = zoneParts[i].trim(), nameM = part.match(/^([А-ЯA-Z])\./i), name = nameM ? nameM[1].toUpperCase() : String(i), g = buildGeometry(part); if (g) zones.push({ name, geometry: g }); }
@@ -327,7 +355,8 @@ function parseOne(rawText){
   return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,zones,singleGeometry,points:[],notes};
 }
 function geomToKml(g, dLon, dLat){
-  const coords = g.pts.map(([lon,lat]) => `              ${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
+  const coords = g.pts.map(([lon,lat]) => `${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
+  if (g.kind === 'point') return `<Point><coordinates>${coords}</coordinates></Point>`;
   if (g.kind === 'line') return `<LineString><tessellate>1</tessellate><coordinates>\n${coords}\n</coordinates></LineString>`;
   return `<Polygon><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><outerBoundaryIs><LinearRing><coordinates>\n${coords}\n</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
 }
@@ -335,16 +364,20 @@ function buildKML(items, isSK42){
   const hexFill = document.getElementById('colorFill').value, hexPoint = document.getElementById('colorPoint').value;
   const colorLine = hexToKml(hexFill, 'ff'), colorFill = hexToKml(hexFill, '4d'), colorPoint = hexToKml(hexPoint, 'ff');
   const allPlacemarks = []; const dLat = isSK42 ? 0.0014 : 0, dLon = isSK42 ? -0.0020 : 0;
+  
   items.forEach((p) => {
     const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
+    
     if (p.points && p.points.length > 0) {
         p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
     } else if (p.zones && p.zones.length > 0) {
         p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
     } else if (p.singleGeometry) {
-        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
+        const styleUrl = p.singleGeometry.kind === 'point' ? '#sPoint' : '#sPoly';
+        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>${styleUrl}</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
     }
   });
+  
   return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>ПРИП</name><Style id="sPoly"><LineStyle><color>${colorLine}</color><width>2</width></LineStyle><PolyStyle><color>${colorFill}</color></PolyStyle></Style><Style id="sPoint"><IconStyle><color>${colorPoint}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>${allPlacemarks.join('\n')}</Document></kml>`;
 }
 
@@ -365,13 +398,11 @@ document.getElementById('parse').onclick=()=>{
     try {
       preview.innerHTML=''; parsed=[];
       
-      // 1. Очистка от невидимых символов и тире
       let text = fixOcr(rawText.replace(/[–—‑]/g, '-').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' '));
       
-      // 2. КРИТИЧЕСКИЙ ФИКС: Вырезаем слипшиеся дубли заголовков ДО разбиения на части
-      text = text.replace(/([^\s])ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+(?:КАРТ[АЫ]\s+)?(?:\d+\s+)*/gi, '$1 ');
+      // КРИТИЧЕСКИЙ ФИКС: Удаляем дубли заголовков с учетом переносов строк
+      text = text.replace(/([^\n])\n*ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+(?:КАРТ[АЫ]\s+)?(?:\d+\s+)*/gi, '$1 ');
       
-      // 3. Стандартные замены
       text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2').replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
       
       checkCancellations(text);
