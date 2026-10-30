@@ -3,96 +3,158 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>ПРИП → KML</title>
+<title>NavAhead — ПРИП в KML</title>
 <link rel="manifest" href="manifest.json">
-<meta name="theme-color" content="#121212">
+<meta name="theme-color" content="#0f172a">
 <style>
+:root {
+  --bg-color: #0f172a;
+  --card-bg: rgba(30, 41, 59, 0.7);
+  --text-main: #e2e8f0;
+  --text-muted: #94a3b8;
+  --accent: #38bdf8;
+  --accent-hover: #0284c7;
+  --danger: #ef4444;
+  --border: rgba(255, 255, 255, 0.1);
+}
+
 *{box-sizing:border-box}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  margin:0;padding:16px;
-  background:#121212;
-  color:#e0e0e0;
+  margin:0; padding:16px;
+  /* Красивый морской градиент */
+  background: radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+  background-attachment: fixed;
+  color: var(--text-main);
+  min-height: 100vh;
 }
-h1{font-size:1.4em;margin:0 0 8px;color:#64b5f6}
-.container{max-width:720px;margin:0 auto}
-textarea{
-  width:100%;min-height:150px;padding:12px;
-  border:1px solid #444;border-radius:8px;
-  background:#1e1e1e;color:#e0e0e0;
-  font-family:inherit;font-size:14px;resize:vertical;
-}
-textarea:focus{outline:none;border-color:#64b5f6}
-button{
-  padding:12px 20px;border:none;border-radius:8px;
-  background:#0d6efd;color:#fff;
-  font-size:15px;font-weight:600;cursor:pointer;
-  margin:8px 4px 0 0;transition:background 0.2s;
-}
-button:hover{background:#0b5ed7}
-button:disabled{background:#333;color:#777;cursor:not-allowed}
-button.danger{background:#ef4444;color:#fff}
-button.danger:hover{background:#dc2626}
-.preview{margin:16px 0}
-.card{background:#1e1e1e;border:1px solid #333;border-radius:8px;padding:12px;margin-bottom:8px}
-.card h3{margin:0 0 8px;font-size:1em;color:#64b5f6}
-.card p{margin:4px 0;font-size:13px}
-.row{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:6px}
-.tag{display:inline-block;padding:2px 8px;border-radius:4px;background:#1e3a8a;color:#93c5fd;font-size:12px}
-.err{background:#7f1d1d;color:#fca5a5;border:1px solid #991b1b;padding:12px;border-radius:8px;margin:8px 0;font-size:13px}
-.warn{color:#fbbf24;font-size:12px;margin:4px 0}
-.skip{font-size:12px;color:#777;margin:0 0 8px}
-.info{font-size:12px;color:#888;margin-top:16px;line-height:1.5}
-label.settings-label{
-  display:inline-flex;align-items:center;font-size:13px;
-  color:#ccc;margin-top:10px;cursor:pointer;
-  background:#2d2d2d;padding:8px 12px;border-radius:8px;font-weight:600;
-}
-input[type="checkbox"]{margin-right:8px;transform:scale(1.2);cursor:pointer;accent-color:#0d6efd}
-.version{text-align:right;font-size:11px;color:#555;margin-top:10px;}
-.zone-box{margin-top:8px; border-top:1px dashed #444; padding-top:8px;}
 
-/* Стили для палитры цветов */
-.color-row{display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; background:#1e1e1e; padding:8px 12px; border-radius:8px; border:1px solid #333;}
-.color-picker{display:flex; align-items:center; font-size:13px; color:#ccc; font-weight:600;}
+.container{max-width:720px;margin:0 auto}
+
+.header { text-align: center; margin-bottom: 20px; }
+.header h1{
+  font-size: 1.8em; margin:0 0 4px;
+  background: linear-gradient(90deg, #38bdf8, #818cf8);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 800;
+  letter-spacing: 1px;
+}
+.header p { margin: 0; color: var(--text-muted); font-size: 14px; }
+
+textarea{
+  width:100%; min-height:150px; padding:14px;
+  border:1px solid var(--border); border-radius:12px;
+  background: rgba(15, 23, 42, 0.6);
+  color: var(--text-main);
+  font-family: inherit; font-size:14px; resize:vertical;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  transition: border-color 0.3s;
+}
+textarea:focus { outline:none; border-color: var(--accent); }
+
+/* Панель настроек (Стекло) */
+.settings-panel {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px;
+  margin: 16px 0;
+  padding: 12px 16px;
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-radius: 12px;
+  border: 1px solid var(--border);
+}
+
+label.settings-label{
+  display:inline-flex; align-items:center; font-size:14px;
+  color: var(--text-main); cursor:pointer; font-weight: 500;
+}
+input[type="checkbox"]{
+  margin-right:8px; transform:scale(1.2); cursor:pointer; accent-color:var(--accent);
+}
+
+/* Палитра цветов */
+.color-row{display:flex; gap:16px; flex-wrap:wrap;}
+.color-picker{display:flex; align-items:center; font-size:13px; color:var(--text-muted); font-weight:600;}
 input[type="color"]{
-  margin-left:6px; border:none; border-radius:4px; width:28px; height:28px;
-  padding:0; background:none; cursor:pointer; vertical-align:middle;
+  margin-left:8px; border:1px solid var(--border); border-radius:6px;
+  width:32px; height:32px; padding:0; background:none; cursor:pointer; vertical-align:middle;
 }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
-input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radius: 4px; }
+input[type="color"]::-webkit-color-swatch { border: none; border-radius: 4px; }
+
+/* Кнопки */
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+button{
+  flex: 1; min-width: 120px; padding:14px 20px;
+  border:none; border-radius:10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent-hover));
+  color:#fff; font-size:15px; font-weight:600; cursor:pointer;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+  transition: transform 0.1s, box-shadow 0.2s;
+}
+button:hover { box-shadow: 0 6px 12px rgba(56, 189, 248, 0.3); }
+button:active { transform: scale(0.98); }
+button:disabled { background: #334155; color: #64748b; box-shadow: none; cursor: not-allowed; }
+button.danger{ background: linear-gradient(135deg, #ef4444, #b91c1c); box-shadow: 0 4px 6px rgba(0,0,0,0.2); }
+button.danger:hover { box-shadow: 0 6px 12px rgba(239, 68, 68, 0.3); }
+
+/* Карточки превью */
+.preview{margin:16px 0}
+.card{
+  background: var(--card-bg);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border:1px solid var(--border);
+  border-radius:12px; padding:16px; margin-bottom:12px;
+  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
+.card h3{margin:0 0 10px; font-size:1.1em; color:var(--accent); border-bottom: 1px solid var(--border); padding-bottom: 8px;}
+.card p{margin:6px 0; font-size:14px; color: var(--text-main);}
+.row{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px}
+.tag{display:inline-block; padding:4px 10px; border-radius:20px; background:rgba(56, 189, 248, 0.15); color:var(--accent); font-size:12px; font-weight: 600;}
+.err{background:rgba(127, 29, 29, 0.8); color:#fca5a5; border:1px solid #991b1b; padding:12px; border-radius:10px; margin:8px 0; font-size:13px}
+.warn{color:#fbbf24; font-size:13px; margin:6px 0; background: rgba(251, 191, 36, 0.1); padding: 8px; border-radius: 6px;}
+.skip{font-size:13px; color:var(--text-muted); margin:0 0 12px; padding-left: 8px; border-left: 2px solid var(--text-muted);}
+.zone-box{margin-top:12px; border-top:1px dashed var(--border); padding-top:12px;}
+.info{font-size:12px; color:var(--text-muted); margin-top:24px; line-height:1.6; text-align: center;}
+.version{text-align:center; font-size:12px; color:#475569; margin-top:16px; font-family: monospace;}
 </style>
 </head>
 <body>
 <div class="container">
-  <h1>ПРИП → KML</h1>
-  <p style="margin:0 0 12px;color:#aaa;font-size:14px">Вставьте текст предупреждения (любых регионов). Нажмите «Обработать», затем «Скачать KML».</p>
-  <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
+  <div class="header">
+    <h1>NavAhead</h1>
+    <p>Конвертер ПРИП в навигационный KML</p>
+  </div>
 
-  <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+  <textarea id="input" placeholder="Вставьте сюда текст ПРИП (Мурманск, Архангельск, любой регион)..."></textarea>
+
+  <div class="settings-panel">
     <label class="settings-label">
       <input type="checkbox" id="sk42">
       Пулково-42 (приблизит. поправка)
     </label>
     
     <div class="color-row">
-      <label class="color-picker">Контур <input type="color" id="colorLine" value="#ff0000"></label>
-      <label class="color-picker">Заливка <input type="color" id="colorFill" value="#ff0000"></label>
-      <label class="color-picker">Точки <input type="color" id="colorPoint" value="#00d7ff"></label>
+      <label class="color-picker">Цвет района <input type="color" id="colorFill" value="#ff0000"></label>
+      <label class="color-picker">Цвет точек <input type="color" id="colorPoint" value="#00d7ff"></label>
     </div>
   </div>
 
-  <div>
+  <div class="actions">
     <button id="parse">Обработать</button>
     <button id="clear" class="danger">Сброс</button>
     <button id="download" disabled>Скачать KML</button>
   </div>
 
   <div id="preview" class="preview"></div>
+  
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
   </p>
-  <div class="version">v3.1 (исправление Ю/З, дефисов, 180-го меридиана)</div>
+  <div class="version">v4.0 (Морской интерфейс)</div>
 </div>
 
 <script>
@@ -111,7 +173,6 @@ function hexToKml(hex, alpha='ff') {
     return alpha + b + g + r;
 }
 
-// Исправлено: теперь учитывает полушарие (С/Ю, В/З)
 function formatDM(deg, isLat) {
   if (deg === undefined || deg === null) return '';
   const d = Math.floor(Math.abs(deg));
@@ -217,7 +278,6 @@ function buildGeometry(text) {
     const closed = ring.slice();
     closed.push([ring[0][0], ring[0][1]]);
     
-    // Проверка на переход через 180 меридиан
     const maxLon = Math.max(...ring.map(p=>p[0]));
     const minLon = Math.min(...ring.map(p=>p[0]));
     const crossesAntimeridian = (maxLon - minLon) > 180;
@@ -239,7 +299,7 @@ function describeGeom(g) {
     if (g.crossesAntimeridian) {
         warn += `<p class="warn">⚠ Внимание! Район пересекает 180-й меридиан. В некоторых навигаторах он может отобразиться через всю карту.</p>`;
     }
-    return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
+    return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.4">${list}</p>`;
 }
 
 function parsePointItems(after1){
@@ -283,7 +343,6 @@ function parseOne(rawText){
   if(!t)return null;
   const snippet=t.slice(0,160);
 
-  // ИСПРАВЛЕНО: поддержка дефиса в названии города
   const head=t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
   if(!head){
     if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
@@ -355,7 +414,6 @@ function parseOne(rawText){
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';}
   else{typeLabel='Специальные работы';}
 
-  // ИСПРАВЛЕНО: поддержка слитного формата "252100 ПО 312100"
   let period='';
   const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
   if(pM){
@@ -415,12 +473,12 @@ function geomToKml(g, dLon, dLat){
 }
 
 function buildKML(items, isSK42){
-  const hexLine = document.getElementById('colorLine').value;
+  // Берем цвет района и используем его как для заливки, так и для контура (чтобы работало в AlpineQuest)
   const hexFill = document.getElementById('colorFill').value;
   const hexPoint = document.getElementById('colorPoint').value;
 
-  const colorLine = hexToKml(hexLine, 'ff');
-  const colorFill = hexToKml(hexFill, '4d');
+  const colorLine = hexToKml(hexFill, 'ff'); // Контур того же цвета, но непрозрачный
+  const colorFill = hexToKml(hexFill, '4d'); // Заливка прозрачная 30%
   const colorPoint = hexToKml(hexPoint, 'ff');
 
   const allPlacemarks = [];
@@ -522,7 +580,6 @@ parseBtn.onclick=()=>{
   text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
 
-  // ИСПРАВЛЕНО: поддержка дефиса в названии города
   const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
 
   if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
@@ -535,7 +592,7 @@ parseBtn.onclick=()=>{
       continue;
     }
     if(r.error){
-      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>ПРИП ${xmlEscape(r.pripNum)}</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
+      preview.insertAdjacentHTML('beforeend',`<div class="card"><h3>Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
       continue;
     }
     parsed.push(r);
@@ -548,7 +605,7 @@ parseBtn.onclick=()=>{
         });
     } else if (r.points && r.points.length > 0) {
         const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
-        coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><p style="font-size:12px;color:#aaa;margin-top:2px">${list}</p>`;
+        coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><p style="font-size:12px;color:#94a3b8;margin-top:4px;line-height:1.4">${list}</p>`;
     } else if (r.singleGeometry) {
         coordsStr = describeGeom(r.singleGeometry);
     }
@@ -564,7 +621,7 @@ parseBtn.onclick=()=>{
       <p><b>Карты:</b> ${xmlEscape(r.mapNum)}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
       ${coordsStr}
       ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
-      ${r.notes.length?`<p style="color:#888"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
+      ${r.notes.length?`<p style="color:#94a3b8;font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
     </div>`);
   }
   dlBtn.disabled=parsed.length===0;
