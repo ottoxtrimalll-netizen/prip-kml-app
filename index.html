@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NavAhead — ПРИП в KML</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#0f172a">
@@ -21,10 +21,9 @@
 *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  margin:0; padding:0 0 100px 0; /* Отступ для FAB кнопки */
+  margin:0; padding:0 0 100px 0;
   color: var(--text-main);
   min-height: 100vh;
-  /* Фон с сеткой (морская карта) */
   background-color: var(--bg-color);
   background-image: 
     linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
@@ -34,7 +33,6 @@ body{
   background-attachment: fixed;
 }
 
-/* Sticky Header */
 header {
   position: sticky; top: 0; z-index: 100;
   display: flex; align-items: center; justify-content: center; gap: 12px;
@@ -56,10 +54,10 @@ header svg { width: 32px; height: 32px; fill: url(#grad); }
 
 .container{max-width:720px;margin:0 auto; padding: 16px;}
 
-/* Input Wrapper */
 .input-wrapper { position: relative; margin-bottom: 16px; }
 textarea{
-  width:100%; min-height:160px; padding:16px;
+  width:100%; min-height:160px; 
+  padding: 16px 96px 16px 16px; /* Исправлено наложение кнопок */
   border:1px solid var(--border); border-radius:16px;
   background: rgba(15, 23, 42, 0.6);
   color: var(--text-main);
@@ -80,16 +78,14 @@ textarea:focus { outline:none; border-color: var(--accent); box-shadow: inset 0 
 }
 .btn-icon:hover { background: rgba(255,255,255,0.2); color: #fff; }
 
-/* Settings Panel */
 .settings-panel {
   display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
   margin-bottom: 16px; padding: 16px;
   background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--border);
 }
 
-/* iOS Style Toggle */
 .toggle-wrapper { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.toggle-wrapper span { font-size: 14px; font-weight: 500; color: var(--text-main); }
+.toggle-wrapper span { font-size: 13px; font-weight: 500; color: var(--text-main); }
 .toggle { position: relative; width: 48px; height: 28px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
 .slider {
@@ -104,7 +100,6 @@ textarea:focus { outline:none; border-color: var(--accent); box-shadow: inset 0 
 input:checked + .slider { background-color: var(--accent); }
 input:checked + .slider:before { transform: translateX(20px); }
 
-/* Цвета */
 .color-row{display:flex; gap:16px;}
 .color-picker{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); font-weight:600; cursor:pointer;}
 input[type="color"]{
@@ -116,7 +111,6 @@ input[type="color"]:active { transform: scale(0.9); }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
-/* Main Buttons */
 .actions { display: flex; gap: 12px; margin-bottom: 24px; }
 button.btn-main{
   flex: 1; padding:16px 20px; border:none; border-radius:14px;
@@ -128,7 +122,6 @@ button.btn-main{
 button.btn-main:active { transform: translateY(6px); box-shadow: 0 0px 0 #075985, 0 4px 10px rgba(0,0,0,0.3); }
 button.btn-main:disabled { background: #334155; box-shadow: 0 6px 0 #1e293b; color: #64748b; transform: none; cursor: not-allowed; }
 
-/* FAB (Плавающая кнопка) */
 .fab {
   position: fixed; bottom: 24px; right: 24px; z-index: 1000;
   width: 64px; height: 64px; border-radius: 50%;
@@ -142,20 +135,18 @@ button.btn-main:disabled { background: #334155; box-shadow: 0 6px 0 #1e293b; col
 .fab.visible { transform: translateY(0) scale(1); opacity: 1; }
 .fab:active { transform: scale(0.9); }
 
-/* Сворачиваемые карточки */
-details.card {
+/* Карточки */
+details.card, .error-card {
   background: var(--card-bg); backdrop-filter: blur(10px);
   border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px;
-  overflow: hidden; position: relative;
-  transition: background 0.3s;
+  overflow: hidden; position: relative; transition: background 0.3s;
 }
 details.card[open] { background: rgba(30, 41, 59, 0.95); border-color: rgba(56, 189, 248, 0.4); }
-
-/* Цветная полоса слева */
 details.card::before {
   content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 6px;
   background-color: var(--card-color, var(--accent)); border-radius: 16px 0 0 16px;
 }
+.error-card { border-left: 6px solid var(--danger); padding: 16px; }
 
 summary.card-header {
   padding: 16px 16px 16px 24px; cursor: pointer; list-style: none;
@@ -165,7 +156,6 @@ summary.card-header::-webkit-details-marker { display: none; }
 .card-title { font-size: 1.1em; font-weight: 700; color: var(--accent); margin: 0; display: flex; align-items: center; justify-content: space-between;}
 .card-meta { font-size: 13px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;}
 
-/* Контент карточки */
 .card-body { padding: 0 16px 16px 24px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; font-size: 14px;}
 .card-body p { margin: 8px 0; }
 .tag { display:inline-block; padding:4px 10px; border-radius:20px; background:rgba(56, 189, 248, 0.15); color:var(--accent); font-size:12px; font-weight: 600;}
@@ -175,7 +165,7 @@ summary.card-header::-webkit-details-marker { display: none; }
 .zone-box{margin-top:12px; border-top:1px dashed var(--border); padding-top:12px;}
 .coords-list { font-size: 12px; color: #cbd5e1; line-height: 1.6; font-family: 'SF Mono', monospace;}
 
-/* Спиннер загрузки */
+/* Спиннер и Тост */
 .spinner-overlay {
   display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
   background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
@@ -188,7 +178,6 @@ summary.card-header::-webkit-details-marker { display: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Toast Уведомление */
 .toast {
   position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
   background: #10b981; color: white; padding: 12px 24px; border-radius: 30px;
@@ -196,6 +185,7 @@ summary.card-header::-webkit-details-marker { display: none; }
   opacity: 0; transition: all 0.3s; z-index: 3000; pointer-events: none;
   display: flex; align-items: center; gap: 8px;
 }
+.toast.error { background: var(--danger); }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
 .info{font-size:12px; color:var(--text-muted); margin-top:24px; line-height:1.6; text-align: center;}
@@ -203,14 +193,13 @@ summary.card-header::-webkit-details-marker { display: none; }
 </style>
 </head>
 <body>
-<!-- Скрытый SVG градиент для иконки -->
 <svg width="0" height="0"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs></svg>
 
 <header>
-  <!-- Иконка штурвала/радара -->
+  <!-- Иконка компаса -->
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z" fill="url(#grad)"/>
-    <path d="M12 6v6l4 2" stroke="url(#grad)" stroke-width="2" stroke-linecap="round"/>
+    <circle cx="12" cy="12" r="10" stroke="url(#grad)" stroke-width="2" fill="none"/>
+    <polygon points="12 5 15 15 12 13 9 15" fill="url(#grad)"/>
   </svg>
   <h1 class="header-title">NavAhead</h1>
 </header>
@@ -230,7 +219,7 @@ summary.card-header::-webkit-details-marker { display: none; }
         <input type="checkbox" id="sk42">
         <span class="slider"></span>
       </div>
-      <span>Пулково-42 (поправка)</span>
+      <span>Пулково-42 (приблизит.)</span>
     </label>
     
     <div class="color-row">
@@ -248,19 +237,16 @@ summary.card-header::-webkit-details-marker { display: none; }
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
   </p>
-  <div class="version">v5.0 (Native Feel)</div>
+  <div class="version">v5.2 (Стабильный релиз)</div>
 </div>
 
-<!-- Плавающая кнопка скачивания -->
 <button id="download" class="fab" title="Скачать KML">💾</button>
 
-<!-- Оверлей загрузки -->
 <div class="spinner-overlay" id="spinner">
   <div class="spinner"></div>
   <div style="font-weight:600; color:var(--accent)">Обработка текста...</div>
 </div>
 
-<!-- Уведомление -->
 <div class="toast" id="toast">✅ Файл KML успешно скачан</div>
 
 <script>
@@ -376,18 +362,20 @@ function buildGeometry(text) {
     if (ring.length > 1 && Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) ring.pop();
 
     if (ring.length < 2) return null;
-    if (ring.length === 2) return { kind: 'line', pts: ring };
-
-    if (ringSelfIntersects(ring)) {
-        return { kind: 'line', pts: ring, openBorder: true };
-    }
-    const closed = ring.slice();
-    closed.push([ring[0][0], ring[0][1]]);
     
+    // Проверка на переход через 180 меридиан для линий
     const maxLon = Math.max(...ring.map(p=>p[0]));
     const minLon = Math.min(...ring.map(p=>p[0]));
     const crossesAntimeridian = (maxLon - minLon) > 180;
 
+    if (ring.length === 2) return { kind: 'line', pts: ring, crossesAntimeridian };
+
+    if (ringSelfIntersects(ring)) {
+        return { kind: 'line', pts: ring, openBorder: true, crossesAntimeridian };
+    }
+    const closed = ring.slice();
+    closed.push([ring[0][0], ring[0][1]]);
+    
     return { kind: 'polygon', pts: closed, crossesAntimeridian };
 }
 
@@ -449,36 +437,44 @@ function parseOne(rawText){
   if(!t)return null;
   const snippet=t.slice(0,160);
 
-  const head=t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
-  if(!head){
+  const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+(.+)/i);
+  if (!head) {
     if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
     return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
   }
-  const city=head[1].toUpperCase(),pripNum=head[2];
+  
+  const city = head[1].toUpperCase(), pripNum = head[2];
+  let rest = head[3];
 
-  const mapsM=t.match(/КАРТ[АЫ]\s+((?:\d+\s+)+)/i);
-  const maps=mapsM?mapsM[1].trim().split(/\s+/):[head[3]];
-  const mapNum=maps.join(', ');
-  let rest=mapsM?t.slice(mapsM.index+mapsM[0].length):t.slice(head.index+head[0].length);
-  let book='';
-  const bookM=rest.match(/^КНИГА\s+(\d+)\s*/i);
-  if(bookM){book=bookM[1];rest=rest.slice(bookM[0].length)}
-
-  const startM=rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
-
-  if(!startM && extractCoordinates(t).length===0){
-    const full=t.match(/ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?/i);
-    return {skip:true,label:full?full[0]:('ПРИП '+pripNum)};
+  // ИСПРАВЛЕНО: Сначала Карты, потом Книга
+  let mapNum = '';
+  const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
+  if (mapsM) {
+      mapNum = mapsM[1].trim().split(/\s+/).join(', ');
+      rest = rest.slice(mapsM[0].length);
   }
 
-  const areaRaw=startM?rest.slice(0,startM.index).trim():'';
-  const after1=startM?rest.slice(startM.index+startM[0].length):rest;
+  let book = '';
+  const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
+  if (bookM) {
+      book = bookM[1];
+      rest = rest.slice(bookM[0].length);
+  }
 
-  const items=parsePointItems(after1);
-  const withPts=items.filter(it=>it.pts.length>0);
-  const isList=!/РАДИУС/i.test(after1) &&
-               !items.some(it=>it.pts.length>=3) &&
-               (withPts.length>=2 || (withPts.length===1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw+' '+after1)));
+  const startM = rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
+
+  if(!startM && extractCoordinates(t).length===0){
+    return {skip:true, label:`ПРИП ${city} ${pripNum}`};
+  }
+
+  const areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
+  const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
+
+  const items = parsePointItems(after1);
+  const withPts = items.filter(it => it.pts.length > 0);
+  const isList = !/РАДИУС/i.test(after1) &&
+                 !items.some(it => it.pts.length >= 3) &&
+                 (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
 
   let sec1;
   if(isList){
@@ -520,11 +516,12 @@ function parseOne(rawText){
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';}
   else{typeLabel='Специальные работы';}
 
+  // ИСПРАВЛЕНО: Берем месяц из второй даты, если в первой его нет
   let period='';
   const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
   if(pM){
     const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6];
-    let str = m1 ? `${d1} ${monthFull(m1)}` : `${d1}`;
+    let str = `${d1} ${monthFull(m1||m2)}`;
     if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`;
     str += ` – `;
     str += `${d2} ${monthFull(m2)}`;
@@ -599,7 +596,7 @@ function buildKML(items, isSK42){
       p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'',
       p.book?`<b>Книга:</b> ${xmlEscape(p.book)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
-      isSK42?`<i>Внимание! Применена приблизительная поправка СК-42 → WGS-84 (для Баренцева/Белого морей). Для других регионов она может дать ошибку.</i>`:'',
+      isSK42?`<i>Внимание! Применена приблизительная поправка СК-42 → WGS-84.</i>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean);
 
@@ -669,11 +666,15 @@ const spinner=document.getElementById('spinner');
 const toast=document.getElementById('toast');
 let parsed=[];
 
-function vibrate(ms=50) { if(navigator.vibrate) navigator.vibrate(ms); }
+function vibrate(ms=50) { 
+  if ("vibrate" in navigator) {
+    try { navigator.vibrate(Array.isArray(ms) ? ms : [ms]); } catch(e) {}
+  }
+}
 
-function showToast(msg) {
+function showToast(msg, isError = false) {
   toast.innerHTML = msg;
-  toast.classList.add('show');
+  toast.className = 'toast show' + (isError ? ' error' : '');
   setTimeout(() => toast.classList.remove('show'), 3000);
 }
 
@@ -693,7 +694,7 @@ pasteBtn.onclick=async ()=>{
     input.value = text;
     input.focus();
   } catch (err) {
-    showToast('❌ Нет доступа к буферу обмена');
+    showToast('❌ Нет доступа к буферу обмена', true);
   }
 };
 
@@ -704,89 +705,94 @@ parseBtn.onclick=()=>{
   
   spinner.style.display = 'flex';
   
-  // Небольшая задержка для визуального эффекта загрузки
+  // 10 мс достаточно, чтобы браузер отрисовал спиннер
   setTimeout(() => {
-    preview.innerHTML='';parsed=[];
-    let text = rawText;
-    
-    text = text.replace(/[–—‑]/g, '-');
-    text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
-    text = fixOcr(text);
-    text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
-    text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
+    try {
+      preview.innerHTML='';parsed=[];
+      let text = rawText;
+      
+      text = text.replace(/[–—‑]/g, '-');
+      text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
+      text = fixOcr(text);
+      text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
+      text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
 
-    const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
+      const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+)/i).map(s=>s.trim()).filter(s=>s);
 
-    if(!parts.length){
-      preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';
+      if(!parts.length){
+        preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';
+        return;
+      }
+
+      for(const p of parts){
+        const r=parseOne(p);
+        if(!r){continue}
+        if(r.skip){
+          preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
+          continue;
+        }
+        if(r.error){
+          preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0; margin-bottom:8px;">Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
+          continue;
+        }
+        parsed.push(r);
+
+        let coordsStr = '';
+        if (r.zones && r.zones.length > 0) {
+            coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
+            r.zones.forEach(z => {
+                coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
+            });
+        } else if (r.points && r.points.length > 0) {
+            const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
+            coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
+        } else if (r.singleGeometry) {
+            coordsStr = describeGeom(r.singleGeometry);
+        }
+
+        const currentColor = document.getElementById('colorFill').value;
+
+        preview.insertAdjacentHTML('beforeend',`
+        <details class="card" style="--card-color: ${currentColor}">
+          <summary class="card-header">
+            <div class="card-title">
+              <span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span>
+              <span style="font-size:12px; color:var(--text-muted);">▼</span>
+            </div>
+            <div class="card-meta">
+              <span class="tag">${xmlEscape(r.typeLabel)}</span>
+              ${r.period ? `<span>📅 ${xmlEscape(r.period)}</span>` : ''}
+              ${r.hours ? `<span>⏱ ${xmlEscape(r.hours)}</span>` : ''}
+            </div>
+          </summary>
+          <div class="card-body">
+            <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
+            <p><b>Карты:</b> ${xmlEscape(r.mapNum||'—')}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
+            ${coordsStr}
+            ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
+            ${r.notes.length?`<p style="color:var(--text-muted);font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
+          </div>
+        </details>`);
+      }
+      
+      if(parsed.length > 0) {
+        dlBtn.classList.add('visible');
+      } else {
+        dlBtn.classList.remove('visible');
+      }
+    } catch(e) {
+      console.error(e);
+      preview.insertAdjacentHTML('beforeend', `<div class="error-card"><div class="err">Критическая ошибка при обработке: ${xmlEscape(e.message)}</div></div>`);
+    } finally {
+      // Спиннер выключится в любом случае, даже если упадет ошибка
       spinner.style.display = 'none';
-      return;
     }
-
-    for(const p of parts){
-      const r=parseOne(p);
-      if(!r){continue}
-      if(r.skip){
-        preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
-        continue;
-      }
-      if(r.error){
-        preview.insertAdjacentHTML('beforeend',`<div class="card" style="padding:16px; border-left-color:var(--danger)"><h3 style="color:var(--danger); margin-bottom:8px;">Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
-        continue;
-      }
-      parsed.push(r);
-
-      let coordsStr = '';
-      if (r.zones && r.zones.length > 0) {
-          coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
-          r.zones.forEach(z => {
-              coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
-          });
-      } else if (r.points && r.points.length > 0) {
-          const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
-          coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
-      } else if (r.singleGeometry) {
-          coordsStr = describeGeom(r.singleGeometry);
-      }
-
-      // Берем текущий цвет для полосы
-      const currentColor = document.getElementById('colorFill').value;
-
-      preview.insertAdjacentHTML('beforeend',`
-      <details class="card" style="--card-color: ${currentColor}">
-        <summary class="card-header">
-          <div class="card-title">
-            <span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span>
-            <span style="font-size:12px; color:var(--text-muted);">▼</span>
-          </div>
-          <div class="card-meta">
-            <span class="tag">${xmlEscape(r.typeLabel)}</span>
-            ${r.period ? `<span>📅 ${xmlEscape(r.period)}</span>` : ''}
-            ${r.hours ? `<span>⏱ ${xmlEscape(r.hours)}</span>` : ''}
-          </div>
-        </summary>
-        <div class="card-body">
-          <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
-          <p><b>Карты:</b> ${xmlEscape(r.mapNum)}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
-          ${coordsStr}
-          ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
-          ${r.notes.length?`<p style="color:var(--text-muted);font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
-        </div>
-      </details>`);
-    }
-    
-    if(parsed.length > 0) {
-      dlBtn.classList.add('visible');
-    } else {
-      dlBtn.classList.remove('visible');
-    }
-    spinner.style.display = 'none';
-  }, 300); // 300мс задержка
+  }, 10);
 };
 
 dlBtn.onclick=()=>{
   if(!parsed.length)return;
-  vibrate([50, 50, 50]); // Двойная вибрация для скачивания
+  vibrate([50, 50, 50]);
   const applySK42 = sk42Checkbox.checked;
   const kml=buildKML(parsed, applySK42);
   
