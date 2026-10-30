@@ -72,7 +72,7 @@ input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radiu
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
     <label class="settings-label">
       <input type="checkbox" id="sk42">
-      Пулково-42 (поправка)
+      Пулково-42 (приблизит. поправка)
     </label>
     
     <div class="color-row">
@@ -92,7 +92,7 @@ input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radiu
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
   </p>
-  <div class="version">v3.0 (Поддержка регионов)</div>
+  <div class="version">v3.1 (исправление Ю/З, дефисов, 180-го меридиана)</div>
 </div>
 
 <script>
@@ -111,11 +111,13 @@ function hexToKml(hex, alpha='ff') {
     return alpha + b + g + r;
 }
 
-function formatDM(deg) {
+// Исправлено: теперь учитывает полушарие (С/Ю, В/З)
+function formatDM(deg, isLat) {
   if (deg === undefined || deg === null) return '';
   const d = Math.floor(Math.abs(deg));
   const m = (Math.abs(deg) - d) * 60;
-  return `${d}° ${m.toFixed(3)}′`;
+  const dir = isLat ? (deg >= 0 ? 'С' : 'Ю') : (deg >= 0 ? 'В' : 'З');
+  return `${d}° ${m.toFixed(3)}′ ${dir}`;
 }
 
 function fixOcr(text) {
@@ -214,18 +216,29 @@ function buildGeometry(text) {
     }
     const closed = ring.slice();
     closed.push([ring[0][0], ring[0][1]]);
-    return { kind: 'polygon', pts: closed };
+    
+    // Проверка на переход через 180 меридиан
+    const maxLon = Math.max(...ring.map(p=>p[0]));
+    const minLon = Math.min(...ring.map(p=>p[0]));
+    const crossesAntimeridian = (maxLon - minLon) > 180;
+
+    return { kind: 'polygon', pts: closed, crossesAntimeridian };
 }
 
 function describeGeom(g) {
     if (g.kind === 'circle') {
-        return `<p><b>Центр:</b> ${formatDM(g.cLat)} С, ${formatDM(g.cLon)} В (радиус ${Math.round(g.radiusM)} м)</p>`;
+        return `<p><b>Центр:</b> ${formatDM(g.cLat, true)}, ${formatDM(g.cLon, false)} (радиус ${Math.round(g.radiusM)} м)</p>`;
     }
-    const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1])} С, ${formatDM(pt[0])} В`).join('<br>');
+    const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1], true)}, ${formatDM(pt[0], false)}`).join('<br>');
     const label = g.kind === 'line' ? 'Линия, точек' : 'Точек распознано';
-    const warn = g.openBorder
-        ? `<p class="warn">⚠ Замкнуть контур прямой нельзя: он самопересекается. Показана только граница по точкам ПРИП.</p>`
-        : '';
+    
+    let warn = '';
+    if (g.openBorder) {
+        warn += `<p class="warn">⚠ Замкнуть контур прямой нельзя: он самопересекается. Показана только граница по точкам ПРИП.</p>`;
+    }
+    if (g.crossesAntimeridian) {
+        warn += `<p class="warn">⚠ Внимание! Район пересекает 180-й меридиан. В некоторых навигаторах он может отобразиться через всю карту.</p>`;
+    }
     return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<p style="font-size:11px;color:#aaa;margin-top:2px">${list}</p>`;
 }
 
@@ -270,12 +283,12 @@ function parseOne(rawText){
   if(!t)return null;
   const snippet=t.slice(0,160);
 
-  const head=t.match(/ПРИП\s+([А-ЯЁ]+)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
+  // ИСПРАВЛЕНО: поддержка дефиса в названии города
+  const head=t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+КАРТ[АЫ]\s+(\d+)/i);
   if(!head){
     if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
     return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
   }
-  // ДОБАВЛЕНО: захват города
   const city=head[1].toUpperCase(),pripNum=head[2];
 
   const mapsM=t.match(/КАРТ[АЫ]\s+((?:\d+\s+)+)/i);
@@ -289,7 +302,7 @@ function parseOne(rawText){
   const startM=rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
 
   if(!startM && extractCoordinates(t).length===0){
-    const full=t.match(/ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?/i);
+    const full=t.match(/ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?/i);
     return {skip:true,label:full?full[0]:('ПРИП '+pripNum)};
   }
 
@@ -342,11 +355,17 @@ function parseOne(rawText){
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';}
   else{typeLabel='Специальные работы';}
 
+  // ИСПРАВЛЕНО: поддержка слитного формата "252100 ПО 312100"
   let period='';
-  const pM=sec1.match(/(\d{1,2})\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})\s+([А-ЯЁ]{3,})/i);
+  const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
   if(pM){
-    const d1=parseInt(pM[1],10),m1=pM[2],d2=parseInt(pM[3],10),m2=pM[4];
-    period=m1?`${d1} ${monthFull(m1)} – ${d2} ${monthFull(m2)}`:`${d1}–${d2} ${monthFull(m2)}`;
+    const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6];
+    let str = m1 ? `${d1} ${monthFull(m1)}` : `${d1}`;
+    if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`;
+    str += ` – `;
+    str += `${d2} ${monthFull(m2)}`;
+    if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`;
+    period = str;
   }
 
   let hours='';
@@ -417,11 +436,10 @@ function buildKML(items, isSK42){
       p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'',
       p.book?`<b>Книга:</b> ${xmlEscape(p.book)}`:'',
       p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
-      isSK42?`<i>Применена приблизительная поправка СК-42 → WGS-84.</i>`:'',
+      isSK42?`<i>Внимание! Применена приблизительная поправка СК-42 → WGS-84 (для Баренцева/Белого морей). Для других регионов она может дать ошибку.</i>`:'',
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean);
 
-    // ДОБАВЛЕНО: В KML используется название города
     if (p.points && p.points.length > 0) {
         p.points.forEach(pt => {
             const ptRows = rows.slice();
@@ -502,10 +520,10 @@ parseBtn.onclick=()=>{
   text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
   text = fixOcr(text);
   text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
-  // Лечим склейку типа "3030ПРИП"
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
 
-  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
+  // ИСПРАВЛЕНО: поддержка дефиса в названии города
+  const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
 
   if(!parts.length){preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';return}
 
@@ -529,13 +547,12 @@ parseBtn.onclick=()=>{
             coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
         });
     } else if (r.points && r.points.length > 0) {
-        const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat)} С, ${formatDM(pt.lon)} В${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
+        const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
         coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><p style="font-size:12px;color:#aaa;margin-top:2px">${list}</p>`;
     } else if (r.singleGeometry) {
         coordsStr = describeGeom(r.singleGeometry);
     }
 
-    // ДОБАВЛЕНО: Вывод города в карточке предпросмотра
     preview.insertAdjacentHTML('beforeend',`<div class="card">
       <h3>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</h3>
       <div class="row">
@@ -558,13 +575,11 @@ dlBtn.onclick=()=>{
   const applySK42 = sk42Checkbox.checked;
   const kml=buildKML(parsed, applySK42);
   
-  // ДОБАВЛЕНО: Формирование имени файла с учетом городов
   let name = '';
   if (parsed.length === 1) {
       name = `ПРИП - ${parsed[0].city} ${parsed[0].pripNum}.kml`;
   } else {
       const parts = parsed.map(p => `${p.city} ${p.pripNum}`);
-      // Если все из одного города, пишем город один раз
       const cities = [...new Set(parsed.map(p => p.city))];
       if (cities.length === 1) {
           name = `ПРИП - ${cities[0]} (${parsed.map(p=>p.pripNum).join(', ')}).kml`;
@@ -572,7 +587,6 @@ dlBtn.onclick=()=>{
           name = `ПРИП - ${parts.join(', ')}.kml`;
       }
   }
-  // Ограничение длины имени файла
   if (name.length > 100) name = 'ПРИП - Сборник.kml';
 
   const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
