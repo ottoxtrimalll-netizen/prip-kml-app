@@ -66,7 +66,7 @@ input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radiu
 <body>
 <div class="container">
   <h1>ПРИП → KML</h1>
-  <p style="margin:0 0 12px;color:#aaa;font-size:14px">Вставьте текст предупреждения. Нажмите «Обработать», затем «Скачать KML».</p>
+  <p style="margin:0 0 12px;color:#aaa;font-size:14px">Вставьте текст предупреждения (любых регионов). Нажмите «Обработать», затем «Скачать KML».</p>
   <textarea id="input" placeholder="ПРИП МУРМАНСК 400 КАРТА 15005 ..."></textarea>
 
   <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
@@ -92,7 +92,7 @@ input[type="color"]::-webkit-color-swatch { border: 1px solid #555; border-radiu
   <p class="info">
     Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
   </p>
-  <div class="version">v2.9.1 (исправление разделения районов)</div>
+  <div class="version">v3.0 (Поддержка регионов)</div>
 </div>
 
 <script>
@@ -275,6 +275,7 @@ function parseOne(rawText){
     if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
     return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
   }
+  // ДОБАВЛЕНО: захват города
   const city=head[1].toUpperCase(),pripNum=head[2];
 
   const mapsM=t.match(/КАРТ[АЫ]\s+((?:\d+\s+)+)/i);
@@ -356,8 +357,6 @@ function parseOne(rawText){
   const zones = [];
   let singleGeometry = null;
 
-  // Район начинается с «буква + точка» и далее РАЙОН/УЧАСТОК или сразу координаты.
-  // (?<!\d\s{0,3}) — буква сразу после цифры это направление («034-47.0 В.»), а не новый район.
   const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])(?<!\d\s{0,3})[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК|\d{1,3}\s*-\s*\d{1,2}))/i);
 
   if (zoneParts.length > 1) {
@@ -422,13 +421,14 @@ function buildKML(items, isSK42){
       p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
     ].filter(Boolean);
 
+    // ДОБАВЛЕНО: В KML используется название города
     if (p.points && p.points.length > 0) {
         p.points.forEach(pt => {
             const ptRows = rows.slice();
             ptRows.splice(1, 0, `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}`);
             if (pt.nr) ptRows.splice(2, 0, `<b>НР:</b> ${xmlEscape(pt.nr)}`);
             allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name>
+      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name>
       <description><![CDATA[${ptRows.join('<br/>')}]]></description>
       <styleUrl>#sPoint</styleUrl>
       <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
@@ -438,7 +438,7 @@ function buildKML(items, isSK42){
         const desc = rows.join('<br/>');
         p.zones.forEach(z => {
             allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
+      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
       <description><![CDATA[${desc}]]></description>
       <styleUrl>#sPoly</styleUrl>
       ${geomToKml(z.geometry, dLon, dLat)}
@@ -446,7 +446,7 @@ function buildKML(items, isSK42){
         });
     } else if (p.singleGeometry) {
         allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.pripNum)}</name>
+      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name>
       <description><![CDATA[${rows.join('<br/>')}]]></description>
       <styleUrl>#sPoly</styleUrl>
       ${geomToKml(p.singleGeometry, dLon, dLat)}
@@ -465,7 +465,7 @@ function buildKML(items, isSK42){
     </Style>
   `;
 
-  const firstName=items.length===1?`ПРИП ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
+  const firstName=items.length===1?`ПРИП ${items[0].city} ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
   return `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
   <Document>
@@ -502,6 +502,7 @@ parseBtn.onclick=()=>{
   text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
   text = fixOcr(text);
   text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
+  // Лечим склейку типа "3030ПРИП"
   text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
 
   const parts=text.split(/(?=ПРИП\s+[А-ЯЁ]+\s+\d+(?:\/\d+)?\s+КАРТ[АЫ])/i).map(s=>s.trim()).filter(s=>s);
@@ -534,8 +535,9 @@ parseBtn.onclick=()=>{
         coordsStr = describeGeom(r.singleGeometry);
     }
 
+    // ДОБАВЛЕНО: Вывод города в карточке предпросмотра
     preview.insertAdjacentHTML('beforeend',`<div class="card">
-      <h3>ПРИП ${xmlEscape(r.pripNum)}</h3>
+      <h3>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</h3>
       <div class="row">
         <span class="tag">${xmlEscape(r.typeLabel)}</span>
         ${r.period?`<span class="tag">${xmlEscape(r.period)}</span>`:''}
@@ -555,7 +557,24 @@ dlBtn.onclick=()=>{
   if(!parsed.length)return;
   const applySK42 = sk42Checkbox.checked;
   const kml=buildKML(parsed, applySK42);
-  const name=parsed.length===1?`ПРИП - ${parsed[0].pripNum}.kml`:`ПРИП - ${parsed.map(p=>p.pripNum).join(', ')}.kml`;
+  
+  // ДОБАВЛЕНО: Формирование имени файла с учетом городов
+  let name = '';
+  if (parsed.length === 1) {
+      name = `ПРИП - ${parsed[0].city} ${parsed[0].pripNum}.kml`;
+  } else {
+      const parts = parsed.map(p => `${p.city} ${p.pripNum}`);
+      // Если все из одного города, пишем город один раз
+      const cities = [...new Set(parsed.map(p => p.city))];
+      if (cities.length === 1) {
+          name = `ПРИП - ${cities[0]} (${parsed.map(p=>p.pripNum).join(', ')}).kml`;
+      } else {
+          name = `ПРИП - ${parts.join(', ')}.kml`;
+      }
+  }
+  // Ограничение длины имени файла
+  if (name.length > 100) name = 'ПРИП - Сборник.kml';
+
   const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
   const a=document.createElement('a');
   a.href=URL.createObjectURL(blob);a.download=name;
