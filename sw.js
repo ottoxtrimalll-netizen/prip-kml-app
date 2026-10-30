@@ -1,5 +1,5 @@
 // Версию кэша меняйте при каждом обновлении сайта
-const CACHE = 'prip-kml-v6.1';
+const CACHE = 'prip-kml-v6.2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 
 self.addEventListener('install', e => {
