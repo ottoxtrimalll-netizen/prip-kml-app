@@ -8,186 +8,102 @@
 <meta name="theme-color" content="#0f172a">
 <style>
 :root {
-  --bg-color: #0f172a;
-  --card-bg: rgba(30, 41, 59, 0.85);
-  --text-main: #e2e8f0;
-  --text-muted: #94a3b8;
-  --accent: #38bdf8;
-  --accent-hover: #0284c7;
-  --danger: #ef4444;
-  --border: rgba(255, 255, 255, 0.08);
+  --bg-color: #0f172a; --card-bg: rgba(30, 41, 59, 0.85);
+  --text-main: #e2e8f0; --text-muted: #94a3b8;
+  --accent: #38bdf8; --danger: #ef4444; --success: #10b981;
+  --warning: #f59e0b; --border: rgba(255, 255, 255, 0.08);
 }
-
 *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
 body{
   font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
-  margin:0; padding:0 0 100px 0;
-  color: var(--text-main);
-  min-height: 100vh;
+  margin:0; padding:0 0 80px 0; color: var(--text-main); min-height: 100vh;
   background-color: var(--bg-color);
-  background-image: 
-    linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px),
-    radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
-  background-size: 40px 40px, 40px 40px, 100% 100%;
-  background-attachment: fixed;
+  background-image: linear-gradient(rgba(56, 189, 248, 0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(56, 189, 248, 0.05) 1px, transparent 1px), radial-gradient(circle at top, #1e293b 0%, #0f172a 100%);
+  background-size: 40px 40px, 40px 40px, 100% 100%; background-attachment: fixed;
 }
-
-header {
-  position: sticky; top: 0; z-index: 100;
-  display: flex; align-items: center; justify-content: center; gap: 12px;
-  padding: 16px;
-  background: rgba(15, 23, 42, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
+header { position: sticky; top: 0; z-index: 100; display: flex; align-items: center; justify-content: center; gap: 12px; padding: 16px; background: rgba(15, 23, 42, 0.7); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); }
 header svg { width: 32px; height: 32px; fill: url(#grad); }
-.header-title {
-  font-size: 1.6em; font-weight: 800; letter-spacing: 0.5px;
-  background: linear-gradient(90deg, #38bdf8, #a78bfa);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  margin: 0;
-}
-
+.header-title { font-size: 1.6em; font-weight: 800; letter-spacing: 0.5px; background: linear-gradient(90deg, #38bdf8, #a78bfa); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
 .container{max-width:720px;margin:0 auto; padding: 16px;}
 
+.bottom-nav { position: fixed; bottom: 0; left: 0; right: 0; z-index: 1000; display: flex; background: rgba(15, 23, 42, 0.95); backdrop-filter: blur(10px); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom); }
+.nav-item { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 12px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; position: relative; text-decoration: none; }
+.nav-item.active { color: var(--accent); }
+.nav-item .icon { font-size: 20px; margin-bottom: 4px; }
+.badge { position: absolute; top: 8px; right: calc(50% - 20px); background: var(--danger); color: white; font-size: 10px; padding: 2px 6px; border-radius: 10px; font-weight: bold; }
+
 .input-wrapper { position: relative; margin-bottom: 16px; }
-textarea{
-  width:100%; min-height:160px; 
-  padding: 16px 96px 16px 16px; /* Исправлено наложение кнопок */
-  border:1px solid var(--border); border-radius:16px;
-  background: rgba(15, 23, 42, 0.6);
-  color: var(--text-main);
-  font-family: 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.5;
-  resize:vertical;
-  box-shadow: inset 0 2px 10px rgba(0,0,0,0.3);
-  transition: border-color 0.3s, box-shadow 0.3s;
-}
-textarea:focus { outline:none; border-color: var(--accent); box-shadow: inset 0 2px 10px rgba(0,0,0,0.3), 0 0 15px rgba(56, 189, 248, 0.2); }
+textarea{ width:100%; min-height:160px; padding: 16px 96px 16px 16px; border:1px solid var(--border); border-radius:16px; background: rgba(15, 23, 42, 0.6); color: var(--text-main); font-family: 'SF Mono', Consolas, monospace; font-size: 13px; line-height: 1.5; resize:vertical; box-shadow: inset 0 2px 10px rgba(0,0,0,0.3); }
+textarea:focus { outline:none; border-color: var(--accent); }
+.input-actions { position: absolute; top: 12px; right: 12px; display: flex; gap: 8px; }
+.btn-icon { background: rgba(255,255,255,0.1); border: none; border-radius: 8px; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--text-muted); cursor: pointer; font-size: 16px; }
 
-.input-actions {
-  position: absolute; top: 12px; right: 12px; display: flex; gap: 8px;
-}
-.btn-icon {
-  background: rgba(255,255,255,0.1); border: none; border-radius: 8px;
-  width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;
-  color: var(--text-muted); cursor: pointer; font-size: 16px; transition: background 0.2s;
-}
-.btn-icon:hover { background: rgba(255,255,255,0.2); color: #fff; }
-
-.settings-panel {
-  display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;
-  margin-bottom: 16px; padding: 16px;
-  background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--border);
-}
-
+.settings-panel { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; padding: 16px; background: var(--card-bg); backdrop-filter: blur(10px); border-radius: 16px; border: 1px solid var(--border); }
 .toggle-wrapper { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.toggle-wrapper span { font-size: 13px; font-weight: 500; color: var(--text-main); }
 .toggle { position: relative; width: 48px; height: 28px; }
 .toggle input { opacity: 0; width: 0; height: 0; }
-.slider {
-  position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
-  background-color: #334155; transition: .4s; border-radius: 34px;
-}
-.slider:before {
-  position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px;
-  background-color: white; transition: .4s; border-radius: 50%;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-}
+.slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #334155; transition: .4s; border-radius: 34px; }
+.slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
 input:checked + .slider { background-color: var(--accent); }
 input:checked + .slider:before { transform: translateX(20px); }
-
 .color-row{display:flex; gap:16px;}
 .color-picker{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--text-muted); font-weight:600; cursor:pointer;}
-input[type="color"]{
-  -webkit-appearance: none; border:none; width:36px; height:36px; border-radius:50%;
-  padding:0; background:none; cursor:pointer; box-shadow: 0 0 0 2px rgba(255,255,255,0.1);
-  transition: transform 0.2s;
-}
-input[type="color"]:active { transform: scale(0.9); }
+input[type="color"]{ -webkit-appearance: none; border:none; width:36px; height:36px; border-radius:50%; padding:0; background:none; cursor:pointer; box-shadow: 0 0 0 2px rgba(255,255,255,0.1); }
 input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
 input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
 
 .actions { display: flex; gap: 12px; margin-bottom: 24px; }
-button.btn-main{
-  flex: 1; padding:16px 20px; border:none; border-radius:14px;
-  background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%);
-  color:#fff; font-size:16px; font-weight:700; cursor:pointer;
-  box-shadow: 0 6px 0 #075985, 0 10px 15px rgba(0,0,0,0.3);
-  transition: transform 0.1s, box-shadow 0.1s;
-}
-button.btn-main:active { transform: translateY(6px); box-shadow: 0 0px 0 #075985, 0 4px 10px rgba(0,0,0,0.3); }
+button.btn-main{ flex: 1; padding:16px 20px; border:none; border-radius:14px; background: linear-gradient(180deg, #38bdf8 0%, #0284c7 100%); color:#fff; font-size:16px; font-weight:700; cursor:pointer; box-shadow: 0 6px 0 #075985; transition: transform 0.1s, box-shadow 0.1s; }
+button.btn-main:active { transform: translateY(6px); box-shadow: 0 0px 0 #075985; }
 button.btn-main:disabled { background: #334155; box-shadow: 0 6px 0 #1e293b; color: #64748b; transform: none; cursor: not-allowed; }
 
-.fab {
-  position: fixed; bottom: 24px; right: 24px; z-index: 1000;
-  width: 64px; height: 64px; border-radius: 50%;
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: white; border: none; font-size: 28px;
-  display: flex; align-items: center; justify-content: center;
-  box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4), 0 0 0 4px rgba(16, 185, 129, 0.2);
-  cursor: pointer; transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-  transform: translateY(100px) scale(0); opacity: 0;
-}
+.fab { position: fixed; bottom: 90px; right: 24px; z-index: 900; width: 60px; height: 60px; border-radius: 50%; background: linear-gradient(135deg, #10b981, #059669); color: white; border: none; font-size: 24px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4); transform: translateY(100px) scale(0); opacity: 0; transition: all 0.3s; }
 .fab.visible { transform: translateY(0) scale(1); opacity: 1; }
-.fab:active { transform: scale(0.9); }
 
-/* Карточки */
-details.card, .error-card {
-  background: var(--card-bg); backdrop-filter: blur(10px);
-  border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px;
-  overflow: hidden; position: relative; transition: background 0.3s;
-}
-details.card[open] { background: rgba(30, 41, 59, 0.95); border-color: rgba(56, 189, 248, 0.4); }
-details.card::before {
-  content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 6px;
-  background-color: var(--card-color, var(--accent)); border-radius: 16px 0 0 16px;
-}
+details.card, .error-card, .saved-card { background: var(--card-bg); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 16px; margin-bottom: 12px; overflow: hidden; position: relative; }
+details.card::before, .saved-card::before { content: ''; position: absolute; top: 0; left: 0; bottom: 0; width: 6px; background-color: var(--card-color, var(--accent)); }
 .error-card { border-left: 6px solid var(--danger); padding: 16px; }
-
-summary.card-header {
-  padding: 16px 16px 16px 24px; cursor: pointer; list-style: none;
-  display: flex; flex-direction: column; gap: 6px;
-}
+summary.card-header { padding: 16px 16px 16px 24px; cursor: pointer; list-style: none; display: flex; flex-direction: column; gap: 6px; }
 summary.card-header::-webkit-details-marker { display: none; }
 .card-title { font-size: 1.1em; font-weight: 700; color: var(--accent); margin: 0; display: flex; align-items: center; justify-content: space-between;}
 .card-meta { font-size: 13px; color: var(--text-muted); display: flex; gap: 10px; flex-wrap: wrap;}
-
 .card-body { padding: 0 16px 16px 24px; border-top: 1px solid var(--border); margin-top: 8px; padding-top: 12px; font-size: 14px;}
 .card-body p { margin: 8px 0; }
 .tag { display:inline-block; padding:4px 10px; border-radius:20px; background:rgba(56, 189, 248, 0.15); color:var(--accent); font-size:12px; font-weight: 600;}
-.err{background:rgba(127, 29, 29, 0.8); color:#fca5a5; border:1px solid #991b1b; padding:12px; border-radius:10px; margin:8px 0; font-size:13px}
-.warn{color:#fbbf24; font-size:13px; margin:6px 0; background: rgba(251, 191, 36, 0.1); padding: 8px; border-radius: 6px;}
-.skip{font-size:13px; color:var(--text-muted); margin:0 0 12px; padding-left: 8px; border-left: 2px solid var(--text-muted);}
-.zone-box{margin-top:12px; border-top:1px dashed var(--border); padding-top:12px;}
+.warn{color:var(--warning); font-size:13px; margin:6px 0; background: rgba(245, 158, 11, 0.1); padding: 8px; border-radius: 6px;}
 .coords-list { font-size: 12px; color: #cbd5e1; line-height: 1.6; font-family: 'SF Mono', monospace;}
+.btn-save { margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); font-weight: 600; cursor: pointer; transition: 0.2s; }
+.btn-save.saved { background: rgba(16, 185, 129, 0.2); color: var(--success); border-color: var(--success); }
 
-/* Спиннер и Тост */
-.spinner-overlay {
-  display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0;
-  background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px);
-  z-index: 2000; align-items: center; justify-content: center; flex-direction: column; gap: 16px;
-}
-.spinner {
-  width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1);
-  border-top-color: var(--accent); border-radius: 50%;
-  animation: spin 1s linear infinite;
-}
+.myprips-controls { display: flex; gap: 10px; margin-bottom: 16px; }
+.myprips-controls button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); cursor:pointer; }
+.section-title { font-size: 14px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 20px 0 10px; letter-spacing: 1px; }
+.saved-card { padding: 16px 16px 16px 24px; display: flex; flex-direction: column; gap: 8px; }
+.saved-card.expired { opacity: 0.6; filter: grayscale(0.8); }
+.saved-title { font-size: 1.1em; font-weight: bold; color: var(--accent); display: flex; justify-content: space-between; align-items: center;}
+.saved-meta { font-size: 13px; color: var(--text-muted); }
+.saved-actions { display: flex; gap: 8px; margin-top: 8px; }
+.saved-actions button { flex: 1; padding: 8px; border-radius: 6px; border: none; font-size: 13px; font-weight: 600; cursor: pointer; }
+.btn-dl { background: var(--accent); color: #0f172a; }
+.btn-del { background: rgba(239, 68, 68, 0.2); color: var(--danger); }
+
+.modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 20px; }
+.modal-content { background: #1e293b; border-radius: 16px; padding: 24px; max-width: 400px; width: 100%; border: 1px solid var(--border); box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.modal-content h3 { margin-top: 0; color: var(--accent); }
+.modal-actions { display: flex; gap: 10px; margin-top: 20px; }
+.modal-actions button { flex: 1; padding: 12px; border-radius: 8px; border: none; font-weight: 600; cursor: pointer;}
+.btn-yes { background: var(--danger); color: white; }
+.btn-no { background: #334155; color: white; }
+.cancel-item { display:flex; align-items:center; gap:10px; background:rgba(255,255,255,0.05); padding:12px; border-radius:8px; cursor:pointer; margin-bottom:8px; border:1px solid transparent; transition:0.2s;}
+.cancel-item:hover { border-color:var(--accent); }
+.cancel-item input[type="checkbox"] { width:20px; height:20px; accent-color:var(--danger); cursor:pointer; }
+
+.spinner-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(15, 23, 42, 0.8); backdrop-filter: blur(4px); z-index: 2000; align-items: center; justify-content: center; flex-direction: column; gap: 16px; }
+.spinner { width: 48px; height: 48px; border: 4px solid rgba(255,255,255,0.1); border-top-color: var(--accent); border-radius: 50%; animation: spin 1s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-
-.toast {
-  position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px);
-  background: #10b981; color: white; padding: 12px 24px; border-radius: 30px;
-  font-size: 14px; font-weight: 600; box-shadow: 0 4px 12px rgba(0,0,0,0.3);
-  opacity: 0; transition: all 0.3s; z-index: 3000; pointer-events: none;
-  display: flex; align-items: center; gap: 8px;
-}
-.toast.error { background: var(--danger); }
+.toast { position: fixed; bottom: 100px; left: 50%; transform: translateX(-50%) translateY(20px); background: var(--success); color: white; padding: 12px 24px; border-radius: 30px; font-size: 14px; font-weight: 600; opacity: 0; transition: all 0.3s; z-index: 3000; pointer-events: none; }
 .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
+.toast.error { background: var(--danger); }
 .info{font-size:12px; color:var(--text-muted); margin-top:24px; line-height:1.6; text-align: center;}
 .version{text-align:center; font-size:12px; color:#475569; margin-top:16px; font-family: monospace;}
 </style>
@@ -196,632 +112,428 @@ summary.card-header::-webkit-details-marker { display: none; }
 <svg width="0" height="0"><defs><linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"><stop offset="0%" stop-color="#38bdf8"/><stop offset="100%" stop-color="#a78bfa"/></linearGradient></defs></svg>
 
 <header>
-  <!-- Иконка компаса -->
-  <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-    <circle cx="12" cy="12" r="10" stroke="url(#grad)" stroke-width="2" fill="none"/>
-    <polygon points="12 5 15 15 12 13 9 15" fill="url(#grad)"/>
-  </svg>
+  <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="url(#grad)" stroke-width="2" fill="none"/><polygon points="12 5 15 15 12 13 9 15" fill="url(#grad)"/></svg>
   <h1 class="header-title">NavAhead</h1>
 </header>
 
-<div class="container">
+<main id="tab-converter" class="container">
+  <div id="warning-banner" style="display:none; background: rgba(239, 68, 68, 0.2); border: 1px solid var(--danger); padding: 12px; border-radius: 12px; margin-bottom: 16px; color: #fca5a5; font-size: 14px;"></div>
   <div class="input-wrapper">
-    <textarea id="input" placeholder="Вставьте текст ПРИП (Мурманск, Архангельск, любой регион)..."></textarea>
+    <textarea id="input" placeholder="Вставьте текст ПРИП..."></textarea>
     <div class="input-actions">
-      <button class="btn-icon" id="pasteBtn" title="Вставить из буфера">📋</button>
-      <button class="btn-icon" id="clearBtn" title="Очистить">✕</button>
+      <button class="btn-icon" id="pasteBtn">📋</button>
+      <button class="btn-icon" id="clearBtn">✕</button>
     </div>
   </div>
-
   <div class="settings-panel">
-    <label class="toggle-wrapper">
-      <div class="toggle">
-        <input type="checkbox" id="sk42">
-        <span class="slider"></span>
-      </div>
-      <span>Пулково-42 (приблизит.)</span>
-    </label>
-    
+    <label class="toggle-wrapper"><div class="toggle"><input type="checkbox" id="sk42"><span class="slider"></span></div><span>Пулково-42 (приблизит.)</span></label>
     <div class="color-row">
-      <label class="color-picker">🗺️ <input type="color" id="colorFill" value="#ff0000" title="Цвет района"></label>
-      <label class="color-picker">📍 <input type="color" id="colorPoint" value="#00d7ff" title="Цвет точек"></label>
+      <label class="color-picker">🗺️ <input type="color" id="colorFill" value="#ff0000"></label>
+      <label class="color-picker">📍 <input type="color" id="colorPoint" value="#00d7ff"></label>
     </div>
   </div>
-
-  <div class="actions">
-    <button id="parse" class="btn-main">Обработать</button>
-  </div>
-
+  <div class="actions"><button id="parse" class="btn-main">Обработать</button></div>
   <div id="preview"></div>
-  
-  <p class="info">
-    Для официального судовождения используйте оригинальный текст ПРИП и официальную карту.
-  </p>
-  <div class="version">v5.2 (Стабильный релиз)</div>
+</main>
+
+<main id="tab-myprips" class="container" style="display:none;">
+  <div class="myprips-controls">
+    <button id="btnExport">⬇️ Сохранить базу</button>
+    <input type="file" id="fileImport" accept=".json" style="display:none">
+    <button id="btnImport">⬆️ Загрузить базу</button>
+  </div>
+  <div id="myprips-list"></div>
+</main>
+
+<nav class="bottom-nav">
+  <a href="#" class="nav-item active" id="nav-converter"><span class="icon">🧭</span><span>Конвертер</span></a>
+  <a href="#" class="nav-item" id="nav-myprips"><span class="icon">📁</span><span>Мои ПРИП</span><span class="badge" id="active-badge" style="display:none;">0</span></a>
+</nav>
+
+<button id="download" class="fab">💾</button>
+<div class="modal-overlay" id="modal">
+  <div class="modal-content">
+    <h3 id="modal-title"></h3>
+    <div id="modal-text"></div>
+    <div class="modal-actions">
+      <button class="btn-no" id="modal-btn-no">Отмена</button>
+      <button class="btn-yes" id="modal-btn-yes">Да</button>
+    </div>
+  </div>
 </div>
-
-<button id="download" class="fab" title="Скачать KML">💾</button>
-
-<div class="spinner-overlay" id="spinner">
-  <div class="spinner"></div>
-  <div style="font-weight:600; color:var(--accent)">Обработка текста...</div>
-</div>
-
-<div class="toast" id="toast">✅ Файл KML успешно скачан</div>
+<div class="spinner-overlay" id="spinner"><div class="spinner"></div></div>
+<div class="toast" id="toast"></div>
 
 <script>
+// ==========================================
+// БАЗА ДАННЫХ (localStorage)
+// ==========================================
+const DB_KEY = 'navahead_db';
+let db = [];
+
+function loadDB() {
+    try {
+        const raw = localStorage.getItem(DB_KEY);
+        db = raw ? JSON.parse(raw) : [];
+    } catch(e) { db = []; }
+    updateBadge();
+}
+
+function saveDB() {
+    localStorage.setItem(DB_KEY, JSON.stringify(db));
+    updateBadge();
+}
+
+function updateBadge() {
+    const active = db.filter(p => !p.isExpired).length;
+    const badge = document.getElementById('active-badge');
+    if (active > 0) { badge.textContent = active; badge.style.display = 'block'; } else { badge.style.display = 'none'; }
+}
+
+// ==========================================
+// УТИЛИТЫ
+// ==========================================
+const MONTHS_MAP = {'ЯНВ':0, 'ФЕВ':1, 'МАР':2, 'АПР':3, 'МАЯ':4, 'МАЙ':4, 'ИЮН':5, 'ИЮЛ':6, 'АВГ':7, 'СЕН':8, 'ОКТ':9, 'НОЯ':10, 'ДЕК':11};
+const MONTHS_FULL = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
+function monthFull(m){ const s=(m||'').toUpperCase(); return MONTHS_FULL[s.slice(0,3)]||s.toLowerCase(); }
+function parseExpiryDate(cancelStr) {
+    if(!cancelStr) return null;
+    const m = cancelStr.match(/(\d{1,2})\s+([а-яё]+)(?:\s+в\s+(\d{2}):(\d{2}))?/i);
+    if(!m) return null;
+    const d = parseInt(m[1], 10), mon = MONTHS_MAP[m[2].toUpperCase().slice(0,3)];
+    if(mon === undefined) return null;
+    const h = m[3] ? parseInt(m[3], 10) : 23, min = m[4] ? parseInt(m[4], 10) : 59;
+    let year = new Date().getFullYear(), date = new Date(year, mon, d, h, min);
+    if (date.getTime() < Date.now() - 30 * 24 * 60 * 60 * 1000) date.setFullYear(year + 1);
+    return date.getTime();
+}
+function showToast(msg, isError = false) { const t = document.getElementById('toast'); t.innerHTML = msg; t.className = 'toast show' + (isError ? ' error' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
+function vibrate(ms=50) { if(navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
 function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
-const MONTHS_FULL={'ЯНВ':'января','ФЕВ':'февраля','МАР':'марта','АПР':'апреля','МАЯ':'мая','МАЙ':'мая','ИЮН':'июня','ИЮЛ':'июля','АВГ':'августа','СЕН':'сентября','ОКТ':'октября','НОЯ':'ноября','ДЕК':'декабря'};
-function monthFull(m){
-  const s=(m||'').toUpperCase();
-  return MONTHS_FULL[s.slice(0,3)]||s.toLowerCase();
-}
+function hexToKml(hex, alpha='ff') { if (!hex || hex.length !== 7) return alpha + '000000'; return alpha + hex.slice(5,7) + hex.slice(3,5) + hex.slice(1,3); }
+function formatDM(deg, isLat) { if (deg === undefined) return ''; const d = Math.floor(Math.abs(deg)); const m = (Math.abs(deg) - d) * 60; const dir = isLat ? (deg >= 0 ? 'С' : 'Ю') : (deg >= 0 ? 'В' : 'З'); return `${d}° ${m.toFixed(3)}′ ${dir}`; }
+function fixOcr(text) { return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m => m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2')); }
+function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 
-function hexToKml(hex, alpha='ff') {
-    if (!hex || hex.length !== 7) return alpha + '000000';
-    const r = hex.slice(1, 3);
-    const g = hex.slice(3, 5);
-    const b = hex.slice(5, 7);
-    return alpha + b + g + r;
-}
-
-function formatDM(deg, isLat) {
-  if (deg === undefined || deg === null) return '';
-  const d = Math.floor(Math.abs(deg));
-  const m = (Math.abs(deg) - d) * 60;
-  const dir = isLat ? (deg >= 0 ? 'С' : 'Ю') : (deg >= 0 ? 'В' : 'З');
-  return `${d}° ${m.toFixed(3)}′ ${dir}`;
-}
-
-function fixOcr(text) {
-  return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m =>
-    m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2'));
-}
-
+// ==========================================
+// ПАРСЕР ТЕКСТА
+// ==========================================
 function extractCoordinates(text) {
     const coordRegex = /(?<![\d.,])(\d{1,3})\s*-\s*(\d{1,2}(?:[.,]\d+)?)(?!\d)(?:\s*-\s*(\d{1,2}(?:[.,]\d+)?)(?!\d))?\s*([СЮВЗNSEW](?![A-Za-zА-ЯЁа-яё]))?/gi;
-
-    const rawTokens = [];
-    let m;
+    const rawTokens = []; let m;
     while ((m = coordRegex.exec(text)) !== null) {
-        const deg = parseFloat(m[1]);
-        const min = parseFloat(m[2].replace(',', '.'));
-        const sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0;
-        const dir = (m[4] || '').toUpperCase();
-
+        const deg = parseFloat(m[1]), min = parseFloat(m[2].replace(',', '.')), sec = m[3] ? parseFloat(m[3].replace(',', '.')) : 0, dir = (m[4] || '').toUpperCase();
         if (min >= 60 || sec >= 60 || deg > 180) continue;
-
-        if (!/[.,]/.test(m[2]) && !m[3] && !dir) {
-            const p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10);
-            if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) continue;
-        }
-
-        let val = deg + min/60 + sec/3600;
-        if (dir === 'Ю' || dir === 'S' || dir === 'З' || dir === 'W') val = -val;
-        rawTokens.push({ val, dir });
+        if (!/[.,]/.test(m[2]) && !m[3] && !dir) { const p1 = parseInt(m[1], 10), p2 = parseInt(m[2], 10); if (p1 >= 1 && p1 <= 31 && p2 >= 1 && p2 <= 31) continue; }
+        let val = deg + min/60 + sec/3600; if (dir === 'Ю' || dir === 'S' || dir === 'З' || dir === 'W') val = -val; rawTokens.push({ val, dir });
     }
-
     const pts = [];
     for (let i = 0; i < rawTokens.length - 1; i++) {
         const t1 = rawTokens[i], t2 = rawTokens[i+1];
         if (t1.dir === 'В' || t1.dir === 'E' || t1.dir === 'З' || t1.dir === 'W') continue;
         if (t2.dir === 'С' || t2.dir === 'N' || t2.dir === 'Ю' || t2.dir === 'S') continue;
-        if (Math.abs(t1.val) <= 90 && Math.abs(t2.val) <= 180) {
-            pts.push([t2.val, t1.val]);
-            i++;
-        }
+        if (Math.abs(t1.val) <= 90 && Math.abs(t2.val) <= 180) { pts.push([t2.val, t1.val]); i++; }
     }
     return pts;
 }
-
 function orient(o, a, b){ return (a[0]-o[0])*(b[1]-o[1]) - (a[1]-o[1])*(b[0]-o[0]); }
-function segCross(p1, p2, p3, p4){
-  const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2);
-  const d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4);
-  return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) &&
-         ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0));
-}
-function ringSelfIntersects(ring){
-  const n = ring.length;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 2; j < n; j++) {
-      if (i === 0 && j === n - 1) continue;
-      if (segCross(ring[i], ring[(i+1)%n], ring[j], ring[(j+1)%n])) return true;
-    }
-  }
-  return false;
-}
-
+function segCross(p1, p2, p3, p4){ const d1 = orient(p3, p4, p1), d2 = orient(p3, p4, p2), d3 = orient(p1, p2, p3), d4 = orient(p1, p2, p4); return ((d1 > 0 && d2 < 0) || (d1 < 0 && d2 > 0)) && ((d3 > 0 && d4 < 0) || (d3 < 0 && d4 > 0)); }
+function ringSelfIntersects(ring){ const n = ring.length; for (let i = 0; i < n; i++) { for (let j = i + 2; j < n; j++) { if (i === 0 && j === n - 1) continue; if (segCross(ring[i], ring[(i+1)%n], ring[j], ring[(j+1)%n])) return true; } } return false; }
 function buildGeometry(text) {
     const circM = text.match(/РАДИУС[А-ЯЁ]*\s+([\d.,]+)\s*(МИЛ[А-ЯЁ]*|МЕТР[А-ЯЁ]*|КМ|М(?![А-ЯЁ]))/i);
     const pts = extractCoordinates(text);
-
     if (circM) {
         if (pts.length < 1) return null;
-        const rVal = parseFloat(circM[1].replace(',', '.'));
-        const rUnit = circM[2].toUpperCase();
-        let radiusM = rVal;
-        if (rUnit.startsWith('МИЛ')) radiusM *= 1852;
-        else if (rUnit.startsWith('КМ')) radiusM *= 1000;
-
-        const cLon = pts[0][0], cLat = pts[0][1];
-        const ring = [];
-        for (let i = 0; i <= 36; i++) {
-            const a = (i * 10) * Math.PI / 180;
-            const lat = cLat + (radiusM * Math.cos(a)) / 111320;
-            const lon = cLon + (radiusM * Math.sin(a)) / (111320 * Math.cos(cLat * Math.PI / 180));
-            ring.push([lon, lat]);
-        }
+        const rVal = parseFloat(circM[1].replace(',', '.')), rUnit = circM[2].toUpperCase(); let radiusM = rVal;
+        if (rUnit.startsWith('МИЛ')) radiusM *= 1852; else if (rUnit.startsWith('КМ')) radiusM *= 1000;
+        const cLon = pts[0][0], cLat = pts[0][1], ring = [];
+        for (let i = 0; i <= 36; i++) { const a = (i * 10) * Math.PI / 180, lat = cLat + (radiusM * Math.cos(a)) / 111320, lon = cLon + (radiusM * Math.sin(a)) / (111320 * Math.cos(cLat * Math.PI / 180)); ring.push([lon, lat]); }
         return { kind: 'circle', pts: ring, radiusM, cLat, cLon };
     }
-
     if (pts.length < 2) return null;
-
-    const ring = pts.slice();
-    const f = ring[0], l = ring[ring.length - 1];
+    const ring = pts.slice(), f = ring[0], l = ring[ring.length - 1];
     if (ring.length > 1 && Math.abs(f[0] - l[0]) < 1e-9 && Math.abs(f[1] - l[1]) < 1e-9) ring.pop();
-
     if (ring.length < 2) return null;
-    
-    // Проверка на переход через 180 меридиан для линий
-    const maxLon = Math.max(...ring.map(p=>p[0]));
-    const minLon = Math.min(...ring.map(p=>p[0]));
-    const crossesAntimeridian = (maxLon - minLon) > 180;
-
+    const maxLon = Math.max(...ring.map(p=>p[0])), minLon = Math.min(...ring.map(p=>p[0])), crossesAntimeridian = (maxLon - minLon) > 180;
     if (ring.length === 2) return { kind: 'line', pts: ring, crossesAntimeridian };
-
-    if (ringSelfIntersects(ring)) {
-        return { kind: 'line', pts: ring, openBorder: true, crossesAntimeridian };
-    }
-    const closed = ring.slice();
-    closed.push([ring[0][0], ring[0][1]]);
-    
+    if (ringSelfIntersects(ring)) return { kind: 'line', pts: ring, openBorder: true, crossesAntimeridian };
+    const closed = ring.slice(); closed.push([ring[0][0], ring[0][1]]);
     return { kind: 'polygon', pts: closed, crossesAntimeridian };
 }
-
 function describeGeom(g) {
-    if (g.kind === 'circle') {
-        return `<p><b>Центр:</b> ${formatDM(g.cLat, true)}, ${formatDM(g.cLon, false)} (радиус ${Math.round(g.radiusM)} м)</p>`;
-    }
+    if (g.kind === 'circle') return `<p><b>Центр:</b> ${formatDM(g.cLat, true)}, ${formatDM(g.cLon, false)} (радиус ${Math.round(g.radiusM)} м)</p>`;
     const list = g.pts.map((pt, i) => `${i+1}. ${formatDM(pt[1], true)}, ${formatDM(pt[0], false)}`).join('<br>');
     const label = g.kind === 'line' ? 'Линия, точек' : 'Точек распознано';
-    
     let warn = '';
-    if (g.openBorder) {
-        warn += `<p class="warn">⚠ Замкнуть контур прямой нельзя: он самопересекается. Показана только граница по точкам ПРИП.</p>`;
-    }
-    if (g.crossesAntimeridian) {
-        warn += `<p class="warn">⚠ Внимание! Район пересекает 180-й меридиан. В некоторых навигаторах он может отобразиться через всю карту.</p>`;
-    }
+    if (g.openBorder) warn += `<p class="warn">⚠ Контур не замкнут (самопересечение).</p>`;
+    if (g.crossesAntimeridian) warn += `<p class="warn">⚠ Пересечение 180-го меридиана!</p>`;
     return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<div class="coords-list">${list}</div>`;
 }
-
 function parsePointItems(after1){
-  const full='1. '+after1;
-  const re=/(?<=^|\s)(\d{1,2})\s*\.(?!\d)\s*/g;
-  const marks=[];
-  let m, expect=1;
-  while((m=re.exec(full))!==null){
-    if(parseInt(m[1],10)===expect){
-      marks.push({n:expect,start:m.index,end:m.index+m[0].length});
-      expect++;
-    }
-  }
-  return marks.map((mk,i)=>{
-    const chunk=full.slice(mk.end, i+1<marks.length?marks[i+1].start:full.length).trim();
-    return {n:mk.n,chunk,pts:extractCoordinates(chunk)};
-  });
+  const full='1. '+after1, re=/(?<=^|\s)(\d{1,2})\s*\.(?!\d)\s*/g, marks=[]; let m, expect=1;
+  while((m=re.exec(full))!==null){ if(parseInt(m[1],10)===expect){ marks.push({n:expect,start:m.index,end:m.index+m[0].length}); expect++; } }
+  return marks.map((mk,i)=>{ const chunk=full.slice(mk.end, i+1<marks.length?marks[i+1].start:full.length).trim(); return {n:mk.n,chunk,pts:extractCoordinates(chunk)}; });
 }
-
 function chunkToPoints(it){
   if(!it.pts.length)return [];
-  const idx=it.chunk.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}(?:[.,]\d+)?/);
-  const name=(idx>0?it.chunk.slice(0,idx):'').replace(/[\s,;:\-–]+$/,'').trim();
-  const nrM=it.chunk.match(/НР\s+(\d+(?:[\s,]+\d+(?![\d-]))*)/i);
-  const nr=nrM?nrM[1].replace(/[\s,]+/g,', '):'';
-  return it.pts.map((pt,k)=>({
-    n:it.n,
-    name:name||('Точка '+it.n),
-    suffix:it.pts.length>1?` (точка ${k+1})`:'',
-    nr,lon:pt[0],lat:pt[1]
-  }));
+  const idx=it.chunk.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}(?:[.,]\d+)?/), name=(idx>0?it.chunk.slice(0,idx):'').replace(/[\s,;:\-–]+$/,'').trim();
+  const nrM=it.chunk.match(/НР\s+(\d+(?:[\s,]+\d+(?![\d-]))*)/i), nr=nrM?nrM[1].replace(/[\s,]+/g,', '):'';
+  return it.pts.map((pt,k)=>({ n:it.n, name:name||('Точка '+it.n), suffix:it.pts.length>1?` (точка ${k+1})`:'', nr,lon:pt[0],lat:pt[1] }));
 }
-
-function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
-
 function parseOne(rawText){
-  const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim();
-  if(!t0)return null;
-  const eq=t0.indexOf('=');
-  const t=(eq>=0?t0.slice(0,eq):t0).trim();
-  if(!t)return null;
-  const snippet=t.slice(0,160);
-
+  const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
+  const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
   const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+(.+)/i);
-  if (!head) {
-    if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t};
-    return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''};
-  }
-  
-  const city = head[1].toUpperCase(), pripNum = head[2];
-  let rest = head[3];
-
-  // ИСПРАВЛЕНО: Сначала Карты, потом Книга
-  let mapNum = '';
-  const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
-  if (mapsM) {
-      mapNum = mapsM[1].trim().split(/\s+/).join(', ');
-      rest = rest.slice(mapsM[0].length);
-  }
-
-  let book = '';
-  const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
-  if (bookM) {
-      book = bookM[1];
-      rest = rest.slice(bookM[0].length);
-  }
-
+  if (!head) { if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
+  const city = head[1].toUpperCase(), pripNum = head[2]; let rest = head[3];
+  let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
+  if (mapsM) { mapNum = mapsM[1].trim().split(/\s+/).join(', '); rest = rest.slice(mapsM[0].length); }
+  let book = ''; const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
+  if (bookM) { book = bookM[1]; rest = rest.slice(bookM[0].length); }
   const startM = rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
-
-  if(!startM && extractCoordinates(t).length===0){
-    return {skip:true, label:`ПРИП ${city} ${pripNum}`};
-  }
-
-  const areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
-  const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
-
-  const items = parsePointItems(after1);
-  const withPts = items.filter(it => it.pts.length > 0);
-  const isList = !/РАДИУС/i.test(after1) &&
-                 !items.some(it => it.pts.length >= 3) &&
-                 (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
-
-  let sec1;
-  if(isList){
-    sec1=after1.trim();
-  }else{
-    const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/);
-    sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim();
-  }
+  if(!startM && extractCoordinates(t).length===0) return {skip:true, label:`ПРИП ${city} ${pripNum}`};
+  const areaRaw = startM ? rest.slice(0, startM.index).trim() : '', after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
+  const items = parsePointItems(after1), withPts = items.filter(it => it.pts.length > 0);
+  const isList = !/РАДИУС/i.test(after1) && !items.some(it => it.pts.length >= 3) && (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
+  let sec1; if(isList){ sec1=after1.trim(); }else{ const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/); sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim(); }
   const body=sec1||t;
-
-  let cancel='';
-  const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
-  if(otmM){
-    const d=otmM[1],mon=otmM[2].toUpperCase();
-    if(d.length===6)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`;
-    else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`;
-    else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`;
-    else cancel=`${d} ${monthFull(mon)}`;
-  }
-
-  const notes=[];
-  if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('при плавании соблюдать осторожность');
-
+  let cancel=''; const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
+  if(otmM){ const d=otmM[1],mon=otmM[2].toUpperCase(); if(d.length===6)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`; else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`; else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`; else cancel=`${d} ${monthFull(mon)}`; }
+  const notes=[]; if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('соблюдать осторожность');
   if(isList){
-    const points=[];
-    items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
+    const points=[]; items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
     if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
-
-    const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i);
-    const sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw);
-    const cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
+    const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i), sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw), cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
     const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
     return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
   }
-
   let typeLabel;
-  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ|ПУСКИ/i.test(sec1)){typeLabel='Стрельбы / Пуски / Учения';}
-  else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';}
-  else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';}
-  else{typeLabel='Специальные работы';}
-
-  // ИСПРАВЛЕНО: Берем месяц из второй даты, если в первой его нет
-  let period='';
-  const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
-  if(pM){
-    const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6];
-    let str = `${d1} ${monthFull(m1||m2)}`;
-    if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`;
-    str += ` – `;
-    str += `${d2} ${monthFull(m2)}`;
-    if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`;
-    period = str;
-  }
-
-  let hours='';
-  const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/);
-  if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`;
-  else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
-
-  const zones = [];
-  let singleGeometry = null;
-
-  const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])(?<!\d\s{0,3})[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК|\d{1,3}\s*-\s*\d{1,2}))/i);
-
+  if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ|ПУСКИ/i.test(sec1)){typeLabel='Стрельбы / Пуски / Учения';} else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';} else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';} else{typeLabel='Специальные работы';}
+  let period=''; const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
+  if(pM){ const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6]; let str = `${d1} ${monthFull(m1||m2)}`; if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`; str += ` – ${d2} ${monthFull(m2)}`; if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`; period = str; }
+  let hours=''; const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/); if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`; else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
+  const zones = []; let singleGeometry = null; const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])(?<!\d\s{0,3})[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК|\d{1,3}\s*-\s*\d{1,2}))/i);
   if (zoneParts.length > 1) {
-      const openNames = [];
-      for (let i = 1; i < zoneParts.length; i++) {
-          const part = zoneParts[i].trim();
-          const nameM = part.match(/^([А-ЯA-Z])\./i);
-          const name = nameM ? nameM[1].toUpperCase() : String(i);
-          const g = buildGeometry(part);
-          if (g) {
-              zones.push({ name, geometry: g });
-              if (g.openBorder) openNames.push(name);
-          }
-      }
+      for (let i = 1; i < zoneParts.length; i++) { const part = zoneParts[i].trim(), nameM = part.match(/^([А-ЯA-Z])\./i), name = nameM ? nameM[1].toUpperCase() : String(i), g = buildGeometry(part); if (g) zones.push({ name, geometry: g }); }
       if (!zones.length) return {error:'Районы найдены, но координаты не распознаны',snippet,pripNum,mapNum,city};
-      if (openNames.length) notes.push(`район ${openNames.join(', ')}: контур самопересекается, показана только граница`);
   } else {
-      singleGeometry = buildGeometry(body);
-      if (!singleGeometry) return {error:'Не удалось выделить координаты района (нужно минимум 2 точки или центр круга)',snippet,pripNum,mapNum,city};
-      if (singleGeometry.openBorder) notes.push('контур самопересекается, показана только граница без заливки');
+      singleGeometry = buildGeometry(body); if (!singleGeometry) return {error:'Не удалось выделить координаты',snippet,pripNum,mapNum,city};
   }
-
-  if(/ДАЛЕЕ\s+ПО\s+БЕРЕГОВОЙ/i.test(sec1))notes.push('участки «далее по береговой линии» заменены прямыми');
-  if(/МЕЖДУ\s+БЕРЕГОМ/i.test(sec1))notes.push('линия берега не смоделирована');
-  if(/ИСКЛЮЧАЯ\s+ОСТРОВ/i.test(sec1))notes.push('исключение островов не смоделировано');
-  if(/ИСКЛЮЧАЯ\s+БЕРЕГОВУЮ/i.test(sec1))notes.push('береговая часть не исключена');
-
   return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,zones,singleGeometry,points:[],notes};
 }
-
 function geomToKml(g, dLon, dLat){
   const coords = g.pts.map(([lon,lat]) => `              ${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
-  if (g.kind === 'line') {
-    return `<LineString><tessellate>1</tessellate><coordinates>\n${coords}\n</coordinates></LineString>`;
-  }
+  if (g.kind === 'line') return `<LineString><tessellate>1</tessellate><coordinates>\n${coords}\n</coordinates></LineString>`;
   return `<Polygon><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><outerBoundaryIs><LinearRing><coordinates>\n${coords}\n</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
 }
-
 function buildKML(items, isSK42){
-  const hexFill = document.getElementById('colorFill').value;
-  const hexPoint = document.getElementById('colorPoint').value;
-
-  const colorLine = hexToKml(hexFill, 'ff');
-  const colorFill = hexToKml(hexFill, '4d');
-  const colorPoint = hexToKml(hexPoint, 'ff');
-
-  const allPlacemarks = [];
-  const dLat = isSK42 ? 0.0014 : 0;
-  const dLon = isSK42 ? -0.0020 : 0;
-
-  items.forEach((p, idx) => {
-    const rows=[
-      `<b>${xmlEscape(p.typeLabel)}</b>`,
-      p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'',
-      p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'',
-      p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'',
-      p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'',
-      p.book?`<b>Книга:</b> ${xmlEscape(p.book)}`:'',
-      p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'',
-      isSK42?`<i>Внимание! Применена приблизительная поправка СК-42 → WGS-84.</i>`:'',
-      p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''
-    ].filter(Boolean);
-
+  const hexFill = document.getElementById('colorFill').value, hexPoint = document.getElementById('colorPoint').value;
+  const colorLine = hexToKml(hexFill, 'ff'), colorFill = hexToKml(hexFill, '4d'), colorPoint = hexToKml(hexPoint, 'ff');
+  const allPlacemarks = []; const dLat = isSK42 ? 0.0014 : 0, dLon = isSK42 ? -0.0020 : 0;
+  items.forEach((p) => {
+    const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
     if (p.points && p.points.length > 0) {
-        p.points.forEach(pt => {
-            const ptRows = rows.slice();
-            ptRows.splice(1, 0, `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}`);
-            if (pt.nr) ptRows.splice(2, 0, `<b>НР:</b> ${xmlEscape(pt.nr)}`);
-            allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name>
-      <description><![CDATA[${ptRows.join('<br/>')}]]></description>
-      <styleUrl>#sPoint</styleUrl>
-      <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
-    </Placemark>`);
-        });
+        p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
     } else if (p.zones && p.zones.length > 0) {
-        const desc = rows.join('<br/>');
-        p.zones.forEach(z => {
-            allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name>
-      <description><![CDATA[${desc}]]></description>
-      <styleUrl>#sPoly</styleUrl>
-      ${geomToKml(z.geometry, dLon, dLat)}
-    </Placemark>`);
-        });
+        p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
     } else if (p.singleGeometry) {
-        allPlacemarks.push(`    <Placemark>
-      <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name>
-      <description><![CDATA[${rows.join('<br/>')}]]></description>
-      <styleUrl>#sPoly</styleUrl>
-      ${geomToKml(p.singleGeometry, dLon, dLat)}
-    </Placemark>`);
+        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
     }
   });
-
-  const styles = `
-    <Style id="sPoly">
-      <LineStyle><color>${colorLine}</color><width>2</width></LineStyle>
-      <PolyStyle><color>${colorFill}</color></PolyStyle>
-    </Style>
-    <Style id="sPoint">
-      <IconStyle><color>${colorPoint}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle>
-      <LabelStyle><scale>0.8</scale></LabelStyle>
-    </Style>
-  `;
-
-  const firstName=items.length===1?`ПРИП ${items[0].city} ${items[0].pripNum}`:`ПРИП (${items.length} сообщений)`;
-  return `<?xml version="1.0" encoding="UTF-8"?>
-<kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>${xmlEscape(firstName)}</name>
-    <description><![CDATA[Сгенерировано в NavAhead. Полигоны упрощены.]]></description>
-${styles}
-${allPlacemarks.join('\n')}
-  </Document>
-</kml>`;
+  return `<?xml version="1.0" encoding="UTF-8"?><kml xmlns="http://www.opengis.net/kml/2.2"><Document><name>ПРИП</name><Style id="sPoly"><LineStyle><color>${colorLine}</color><width>2</width></LineStyle><PolyStyle><color>${colorFill}</color></PolyStyle></Style><Style id="sPoint"><IconStyle><color>${colorPoint}</color><scale>1.1</scale><Icon><href>http://maps.google.com/mapfiles/kml/shapes/placemark_circle.png</href></Icon></IconStyle></Style>${allPlacemarks.join('\n')}</Document></kml>`;
 }
 
-const input=document.getElementById('input');
-const parseBtn=document.getElementById('parse');
-const dlBtn=document.getElementById('download');
-const clearBtn=document.getElementById('clearBtn');
-const pasteBtn=document.getElementById('pasteBtn');
-const preview=document.getElementById('preview');
-const sk42Checkbox=document.getElementById('sk42');
-const spinner=document.getElementById('spinner');
-const toast=document.getElementById('toast');
+// ==========================================
+// ЛОГИКА ИНТЕРФЕЙСА
+// ==========================================
 let parsed=[];
+const input=document.getElementById('input'), preview=document.getElementById('preview'), dlBtn=document.getElementById('download');
+const spinner=document.getElementById('spinner');
 
-function vibrate(ms=50) { 
-  if ("vibrate" in navigator) {
-    try { navigator.vibrate(Array.isArray(ms) ? ms : [ms]); } catch(e) {}
-  }
-}
+document.getElementById('clearBtn').onclick=()=>{ vibrate(20); input.value=''; preview.innerHTML=''; parsed=[]; dlBtn.classList.remove('visible'); };
+document.getElementById('pasteBtn').onclick=async ()=>{ vibrate(20); try { input.value = await navigator.clipboard.readText(); } catch(e) { showToast('Нет доступа к буферу', true); } };
 
-function showToast(msg, isError = false) {
-  toast.innerHTML = msg;
-  toast.className = 'toast show' + (isError ? ' error' : '');
-  setTimeout(() => toast.classList.remove('show'), 3000);
-}
-
-clearBtn.onclick=()=>{
-  vibrate(20);
-  input.value='';
-  preview.innerHTML='';
-  parsed=[];
-  dlBtn.classList.remove('visible');
-  input.focus();
-};
-
-pasteBtn.onclick=async ()=>{
-  vibrate(20);
-  try {
-    const text = await navigator.clipboard.readText();
-    input.value = text;
-    input.focus();
-  } catch (err) {
-    showToast('❌ Нет доступа к буферу обмена', true);
-  }
-};
-
-parseBtn.onclick=()=>{
-  vibrate(50);
-  const rawText = input.value.trim();
-  if(!rawText) return;
-  
+document.getElementById('parse').onclick=()=>{
+  vibrate(50); const rawText = input.value.trim(); if(!rawText) return;
   spinner.style.display = 'flex';
-  
-  // 10 мс достаточно, чтобы браузер отрисовал спиннер
   setTimeout(() => {
     try {
-      preview.innerHTML='';parsed=[];
-      let text = rawText;
+      preview.innerHTML=''; parsed=[];
+      let text = fixOcr(rawText.replace(/[–—‑]/g, '-').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ').replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2').replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП '));
       
-      text = text.replace(/[–—‑]/g, '-');
-      text = text.replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' ');
-      text = fixOcr(text);
-      text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2');
-      text = text.replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
+      checkCancellations(text);
 
       const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+)/i).map(s=>s.trim()).filter(s=>s);
-
-      if(!parts.length){
-        preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>';
-        return;
-      }
+      if(!parts.length){ preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>'; return; }
 
       for(const p of parts){
-        const r=parseOne(p);
-        if(!r){continue}
-        if(r.skip){
-          preview.insertAdjacentHTML('beforeend',`<p class="skip">Служебный заголовок пропущен: ${xmlEscape(r.label)}</p>`);
-          continue;
-        }
-        if(r.error){
-          preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0; margin-bottom:8px;">Ошибка разбора</h3><div class="err">${xmlEscape(r.error)}</div>${r.snippet?`<p style="font-size:11px;color:#aaa">Фрагмент: ${xmlEscape(r.snippet)}…</p>`:''}</div>`);
-          continue;
-        }
+        const r=parseOne(p); if(!r) continue;
+        if(r.skip){ preview.insertAdjacentHTML('beforeend',`<p style="font-size:12px; color:var(--text-muted); padding-left:8px; border-left:2px solid #475569;">Пропущен: ${xmlEscape(r.label)}</p>`); continue; }
+        if(r.error){ preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0;">Ошибка</h3><div class="err">${xmlEscape(r.error)}</div></div>`); continue; }
+        
+        const currentIdx = parsed.length;
         parsed.push(r);
 
         let coordsStr = '';
-        if (r.zones && r.zones.length > 0) {
-            coordsStr = `<p><b>Найдено районов:</b> ${r.zones.length}</p>`;
-            r.zones.forEach(z => {
-                coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`;
-            });
-        } else if (r.points && r.points.length > 0) {
-            const list = r.points.map(pt => `${pt.n}. ${xmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + xmlEscape(pt.nr) : ''}`).join('<br>');
-            coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
-        } else if (r.singleGeometry) {
-            coordsStr = describeGeom(r.singleGeometry);
-        }
-
-        const currentColor = document.getElementById('colorFill').value;
+        if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
+        else if (r.points && r.points.length > 0) { coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p>`; }
+        else if (r.singleGeometry) { coordsStr = describeGeom(r.singleGeometry); }
 
         preview.insertAdjacentHTML('beforeend',`
-        <details class="card" style="--card-color: ${currentColor}">
+        <details class="card" style="--card-color: ${document.getElementById('colorFill').value}">
           <summary class="card-header">
-            <div class="card-title">
-              <span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span>
-              <span style="font-size:12px; color:var(--text-muted);">▼</span>
-            </div>
-            <div class="card-meta">
-              <span class="tag">${xmlEscape(r.typeLabel)}</span>
-              ${r.period ? `<span>📅 ${xmlEscape(r.period)}</span>` : ''}
-              ${r.hours ? `<span>⏱ ${xmlEscape(r.hours)}</span>` : ''}
-            </div>
+            <div class="card-title"><span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span><span style="font-size:12px;">▼</span></div>
+            <div class="card-meta"><span class="tag">${xmlEscape(r.typeLabel)}</span>${r.period?`<span>📅 ${xmlEscape(r.period)}</span>`:''}</div>
           </summary>
           <div class="card-body">
             <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
-            <p><b>Карты:</b> ${xmlEscape(r.mapNum||'—')}${r.book ? ' · <b>Книга:</b> ' + xmlEscape(r.book) : ''}</p>
+            <p><b>Карты:</b> ${xmlEscape(r.mapNum||'—')}</p>
             ${coordsStr}
             ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
-            ${r.notes.length?`<p style="color:var(--text-muted);font-size:12px"><i>${xmlEscape(r.notes.join('; '))}.</i></p>`:''}
+            <button class="btn-save" id="save-btn-${currentIdx}" onclick="saveToTracker(${currentIdx})">📌 Сохранить в Мои ПРИП</button>
           </div>
         </details>`);
       }
-      
-      if(parsed.length > 0) {
-        dlBtn.classList.add('visible');
-      } else {
-        dlBtn.classList.remove('visible');
-      }
-    } catch(e) {
-      console.error(e);
-      preview.insertAdjacentHTML('beforeend', `<div class="error-card"><div class="err">Критическая ошибка при обработке: ${xmlEscape(e.message)}</div></div>`);
-    } finally {
-      // Спиннер выключится в любом случае, даже если упадет ошибка
-      spinner.style.display = 'none';
-    }
+      if(parsed.length > 0) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
+    } catch(e) { console.error(e); preview.insertAdjacentHTML('beforeend', `<div class="error-card"><div class="err">Ошибка: ${xmlEscape(e.message)}</div></div>`); } finally { spinner.style.display = 'none'; }
   }, 10);
 };
 
 dlBtn.onclick=()=>{
-  if(!parsed.length)return;
-  vibrate([50, 50, 50]);
-  const applySK42 = sk42Checkbox.checked;
-  const kml=buildKML(parsed, applySK42);
-  
-  let name = '';
-  if (parsed.length === 1) {
-      name = `ПРИП - ${parsed[0].city} ${parsed[0].pripNum}.kml`;
-  } else {
-      const parts = parsed.map(p => `${p.city} ${p.pripNum}`);
-      const cities = [...new Set(parsed.map(p => p.city))];
-      if (cities.length === 1) {
-          name = `ПРИП - ${cities[0]} (${parsed.map(p=>p.pripNum).join(', ')}).kml`;
-      } else {
-          name = `ПРИП - ${parts.join(', ')}.kml`;
-      }
-  }
-  if (name.length > 100) name = 'ПРИП - Сборник.kml';
-
-  const blob=new Blob([kml],{type:'application/vnd.google-earth.kml+xml'});
-  const a=document.createElement('a');
-  a.href=URL.createObjectURL(blob);a.download=name;
-  document.body.appendChild(a);a.click();a.remove();
-  setTimeout(()=>URL.revokeObjectURL(a.href),1500);
-  
+  if(!parsed.length)return; vibrate([50,50,50]);
+  const kml=buildKML(parsed, document.getElementById('sk42').checked);
+  const name=`ПРИП - ${parsed[0].city} ${parsed[0].pripNum}${parsed.length>1?' и др':''}.kml`;
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download=name; a.click();
   showToast('✅ KML файл сохранен');
 };
 
-if('serviceWorker'in navigator&&location.protocol.startsWith('http')){
-  navigator.serviceWorker.register('./sw.js').catch(()=>{});
+function saveToTracker(idx) {
+    const p = parsed[idx], id = `${p.city}_${p.pripNum}`;
+    if (db.find(x => x.id === id)) { showToast('Уже сохранен', true); return; }
+    const expiry = parseExpiryDate(p.cancel);
+    
+    db.push({ id, city: p.city, pripNum: p.pripNum, typeLabel: p.typeLabel, cancelStr: p.cancel, expiryTimestamp: expiry, isExpired: expiry ? expiry < Date.now() : false, rawData: p });
+    saveDB(); 
+    
+    const btn = document.getElementById(`save-btn-${idx}`);
+    if(btn) { btn.textContent = '✅ Сохранено'; btn.classList.add('saved'); btn.disabled = true; }
+    showToast('ПРИП добавлен в трекер'); checkReminders();
 }
+
+function checkCancellations(text) {
+    const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
+    let match, numsToCancel = new Set();
+    
+    while ((match = otmRegex.exec(text)) !== null) {
+        const nums = match[1].match(/\d+/g);
+        if(nums) nums.forEach(n => numsToCancel.add(n));
+    }
+
+    if (numsToCancel.size === 0) return;
+
+    let cancelGroups = [];
+    numsToCancel.forEach(n => {
+        const matches = db.filter(saved => saved.pripNum === n && !saved.isExpired);
+        if (matches.length > 0) cancelGroups.push({ num: n, records: matches });
+    });
+
+    if (cancelGroups.length > 0) {
+        let html = `<p style="margin-bottom:16px; font-size:14px; color:var(--text-muted);">В тексте найдена отмена. Отметьте, какие ПРИП удалить из базы:</p><div style="max-height: 250px; overflow-y: auto;">`;
+        cancelGroups.forEach(group => {
+            group.records.forEach(r => {
+                html += `<label class="cancel-item"><input type="checkbox" class="cancel-cb" value="${r.id}" checked><span style="font-size:15px;">ПРИП <b>${r.city} ${r.pripNum}</b></span></label>`;
+            });
+        });
+        html += `</div>`;
+        
+        showCustomModal('Найдена отмена!', html, () => {
+            const checkboxes = document.querySelectorAll('.cancel-cb:checked');
+            const toDelete = Array.from(checkboxes).map(cb => cb.value);
+            if (toDelete.length > 0) {
+                db = db.filter(p => !toDelete.includes(p.id));
+                saveDB(); renderMyPrips();
+                showToast(`Удалено: ${toDelete.length}`);
+            }
+        });
+    }
+}
+
+function renderMyPrips() {
+    const list = document.getElementById('myprips-list'); list.innerHTML = ''; const now = Date.now();
+    db.forEach(p => { if (p.expiryTimestamp && p.expiryTimestamp < now) p.isExpired = true; else p.isExpired = false; }); saveDB();
+    const active = db.filter(p => !p.isExpired), expired = db.filter(p => p.isExpired);
+    if (active.length === 0 && expired.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">База пуста.</p>'; return; }
+    
+    if (active.length > 0) {
+        list.insertAdjacentHTML('beforeend', `<div class="section-title">Активные (${active.length})</div>`);
+        active.sort((a,b) => (a.expiryTimestamp||Infinity) - (b.expiryTimestamp||Infinity)).forEach(p => {
+            let dateTxt = p.cancelStr ? `Действует до: ${p.cancelStr}` : 'Срок не указан';
+            if(p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
+            list.insertAdjacentHTML('beforeend', `<div class="saved-card" style="--card-color: var(--success)"><div class="saved-title">ПРИП ${p.city} ${p.pripNum}</div><div class="saved-meta">${dateTxt}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${p.id}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${p.id}')">🗑 Удалить</button></div></div>`);
+        });
+    }
+    if (expired.length > 0) {
+        list.insertAdjacentHTML('beforeend', `<div class="section-title" style="display:flex; justify-content:space-between;"><span>Архив (${expired.length})</span><span style="color:var(--danger); cursor:pointer; text-transform:none;" onclick="clearArchive()">Очистить архив</span></div>`);
+        expired.forEach(p => { list.insertAdjacentHTML('beforeend', `<div class="saved-card expired" style="--card-color: #475569"><div class="saved-title">ПРИП ${p.city} ${p.pripNum}</div><div class="saved-meta">Истек: ${p.cancelStr}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${p.id}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${p.id}')">🗑 Удалить</button></div></div>`); });
+    }
+}
+
+function deleteSaved(id) { 
+    showCustomModal('Удаление', '<p>Вы уверены, что хотите удалить этот ПРИП?</p>', () => { 
+        db = db.filter(p => p.id !== id); saveDB(); renderMyPrips(); showToast('Удалено'); 
+    }, 'Удалить'); 
+}
+
+function clearArchive() { 
+    showCustomModal('Очистка', '<p>Удалить все истекшие ПРИП? Действующие останутся.</p>', () => { 
+        db = db.filter(p => !p.isExpired); saveDB(); renderMyPrips(); showToast('Архив очищен'); 
+    }, 'Очистить'); 
+}
+
+function downloadSaved(id) { const p = db.find(x => x.id === id).rawData, kml = buildKML([p], false); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download = `ПРИП - ${p.city} ${p.pripNum}.kml`; a.click(); showToast('Файл сохранен'); }
+
+// Бэкап
+document.getElementById('btnExport').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)],{type:'application/json'})); a.download = `navahead_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); };
+document.getElementById('btnImport').onclick = () => document.getElementById('fileImport').click();
+document.getElementById('fileImport').onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return; const reader = new FileReader();
+    reader.onload = (ev) => { 
+        try { 
+            const imported = JSON.parse(ev.target.result); 
+            if (Array.isArray(imported)) { 
+                imported.forEach(newItem => { 
+                    if (!db.find(x => x.id === newItem.id)) db.push(newItem); 
+                }); 
+                saveDB(); renderMyPrips(); showToast('База загружена!'); 
+            } 
+        } catch(err) { showToast('Ошибка чтения', true); } 
+    };
+    reader.readAsText(file); e.target.value = '';
+};
+
+// Навигация
+document.getElementById('nav-converter').onclick = (e) => { e.preventDefault(); document.getElementById('tab-converter').style.display = 'block'; document.getElementById('tab-myprips').style.display = 'none'; document.getElementById('nav-converter').classList.add('active'); document.getElementById('nav-myprips').classList.remove('active'); };
+document.getElementById('nav-myprips').onclick = (e) => { e.preventDefault(); document.getElementById('tab-converter').style.display = 'none'; document.getElementById('tab-myprips').style.display = 'block'; document.getElementById('nav-myprips').classList.add('active'); document.getElementById('nav-converter').classList.remove('active'); renderMyPrips(); };
+
+function showCustomModal(title, html, onConfirm, yesText = 'Подтвердить') {
+    const modal = document.getElementById('modal'); document.getElementById('modal-title').innerHTML = title; document.getElementById('modal-text').innerHTML = html; modal.style.display = 'flex';
+    const btnYes = document.getElementById('modal-btn-yes'), btnNo = document.getElementById('modal-btn-no');
+    const newYes = btnYes.cloneNode(true), newNo = btnNo.cloneNode(true); btnYes.parentNode.replaceChild(newYes, btnYes); btnNo.parentNode.replaceChild(newNo, btnNo);
+    newYes.textContent = yesText; newYes.style.background = (yesText === 'Удалить' || yesText === 'Очистить') ? 'var(--danger)' : 'var(--accent)';
+    newYes.onclick = () => { modal.style.display = 'none'; onConfirm(); }; newNo.onclick = () => { modal.style.display = 'none'; };
+}
+
+function checkReminders() {
+    const now = Date.now(), banner = document.getElementById('warning-banner'); let urgent = [];
+    db.forEach(p => { if (p.expiryTimestamp && p.expiryTimestamp > now && (p.expiryTimestamp - now) < 86400000) urgent.push(p); });
+    if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${u.city} ${u.pripNum} (до ${u.cancelStr})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
+}
+
+// Инициализация при старте
+loadDB();
+checkReminders();
+
+if('serviceWorker'in navigator&&location.protocol.startsWith('http')){ navigator.serviceWorker.register('./sw.js').catch(()=>{}); }
 </script>
 </body>
 </html>
