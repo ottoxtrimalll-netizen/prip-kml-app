@@ -169,7 +169,7 @@ summary.card-header::-webkit-details-marker { display: none; }
 // ==========================================
 // БАЗА ДАННЫХ (localStorage)
 // ==========================================
-const DB_KEY = 'navahead_db_v3'; // Обновил версию базы, чтобы применились новые ключи с годами
+const DB_KEY = 'navahead_db_v3';
 let db = [];
 
 function loadDB() {
@@ -301,16 +301,14 @@ function chunkToPoints(it){
 function parseOne(rawText, yearCache){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   
-  // Специальный парсер для списков действующих ПРИП
-  const activeListM = t.match(/ДЕЙСТВУЮЩИЕ\s+ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+НА\s+(.+?)\s+ГОД\s+(.+)/i);
+  // Специальный парсер для списков действующих ПРИП (ждем "ГОД" или "ГОДА")
+  const activeListM = t0.match(/ДЕЙСТВУЮЩИЕ\s+ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+НА\s+(.+?)\s+ГОД[А-ЯЁ]*\s+(.+)/i);
   if (activeListM) {
       const city = activeListM[1].toUpperCase();
       const dateRaw = activeListM[2].trim();
       const listRaw = activeListM[3];
       
-      // Разбиваем список по годам
       const parts = listRaw.split(/(\d{4}\s+ГОД)/i);
-      let currentYear = '';
       let html = '';
       
       for (let i = 1; i < parts.length; i += 2) {
@@ -330,15 +328,18 @@ function parseOne(rawText, yearCache){
       };
   }
 
-  const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
+  const eq=t0.indexOf('=');
+  // Переименовали t в cleanText, чтобы избежать ошибок TDZ
+  const cleanText=(eq>=0?t0.slice(0,eq):t0).trim(); 
+  if(!cleanText)return null; 
+  const snippet=cleanText.slice(0,160);
   
-  const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/(\d+))?\s+(.+)/i);
-  if (!head) { if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
+  const head = cleanText.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/(\d+))?\s+(.+)/i);
+  if (!head) { if(cleanText.length<=80 && extractCoordinates(cleanText).length===0)return {skip:true,label:cleanText}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
   
   const city = head[1].toUpperCase(), pripNum = head[2]; 
   let rest = head[4];
   
-  // Если год не указан, берем текущий
   let yearSuffix = head[3] ? head[3] : (yearCache[`${city}_${pripNum}`] || new Date().getFullYear().toString().slice(-2));
 
   let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
@@ -346,7 +347,7 @@ function parseOne(rawText, yearCache){
   let book = ''; const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
   if (bookM) { book = bookM[1]; rest = rest.slice(bookM[0].length); }
   const startM = rest.match(/(?:^|\s)1\s*\.(?!\d)\s*/);
-  if(!startM && extractCoordinates(t).length===0) return {skip:true, label:`ПРИП ${city} ${pripNum}`};
+  if(!startM && extractCoordinates(cleanText).length===0) return {skip:true, label:`ПРИП ${city} ${pripNum}`};
   
   let areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
   if (!areaRaw) {
@@ -358,12 +359,12 @@ function parseOne(rawText, yearCache){
   const items = parsePointItems(after1), withPts = items.filter(it => it.pts.length > 0);
   const isList = !/РАДИУС/i.test(after1) && !items.some(it => it.pts.length >= 3) && (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
   let sec1; if(isList){ sec1=after1.trim(); }else{ const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/); sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim(); }
-  const body=sec1||t;
+  const body=sec1||cleanText;
   
   let cancel=''; 
   let cancelStr = ''; 
   
-  const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
+  const otmM=cleanText.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
   if(otmM){ 
       const d=otmM[1],mon=otmM[2].toUpperCase(); 
       if(d.length===6) cancelStr=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`; 
@@ -433,7 +434,7 @@ function buildKML(items, isSK42){
   const allPlacemarks = []; const dLat = isSK42 ? 0.0014 : 0, dLon = isSK42 ? -0.0020 : 0;
   
   items.forEach((p) => {
-    if (p.isActiveList) return; // Пропускаем списки, для них нет KML
+    if (p.isActiveList) return;
     const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancelStr?`<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
     
     if (p.points && p.points.length > 0) {
@@ -538,7 +539,6 @@ document.getElementById('parse').onclick=()=>{
         </details>`);
       }
       
-      // Кнопка скачивания KML не должна активироваться, если в превью ТОЛЬКО справочник
       const hasKmlData = parsed.some(x => !x.isActiveList);
       if(hasKmlData) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
       
@@ -632,7 +632,6 @@ function renderMyPrips() {
     function renderGroup(items, isExpiredGroup) {
         if (items.length === 0) return;
         
-        // Группируем по годам
         const byYear = {};
         items.forEach(p => {
             const y = p.yearSuffix || 'Неизвестный';
@@ -640,13 +639,11 @@ function renderMyPrips() {
             byYear[y].push(p);
         });
 
-        // Сортируем годы по убыванию (сначала новые)
         const sortedYears = Object.keys(byYear).sort((a,b) => b.localeCompare(a));
 
         sortedYears.forEach(year => {
             list.insertAdjacentHTML('beforeend', `<div class="section-title" style="margin-top:16px;">${isExpiredGroup ? 'Архив' : 'Активные'} — ${htmlEscape(year)} год</div>`);
             
-            // Сортируем внутри года по номеру ПРИП
             byYear[year].sort((a,b) => parseInt(a.pripNum) - parseInt(b.pripNum)).forEach(p => {
                 let dateTxt = p.cancelStr ? `Срок: ${htmlEscape(p.cancelStr)}` : 'Срок не указан';
                 if(!isExpiredGroup && p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
