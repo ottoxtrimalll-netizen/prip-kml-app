@@ -286,22 +286,39 @@ function describeGeom(g) {
     if (g.crossesAntimeridian) warn += `<p class="warn">⚠ Пересечение 180-го меридиана!</p>`;
     return `<p><b>${label}:</b> ${g.pts.length}</p>${warn}<div class="coords-list">${list}</div>`;
 }
+
 function parsePointItems(after1){
   const full='1. '+after1, re=/(?<=^|\s)(\d{1,2})\s*\.(?!\d)\s*/g, marks=[]; let m, expect=1;
   while((m=re.exec(full))!==null){ if(parseInt(m[1],10)===expect){ marks.push({n:expect,start:m.index,end:m.index+m[0].length}); expect++; } }
   return marks.map((mk,i)=>{ const chunk=full.slice(mk.end, i+1<marks.length?marks[i+1].start:full.length).trim(); return {n:mk.n,chunk,pts:extractCoordinates(chunk)}; });
 }
+
 function chunkToPoints(it){
   if(!it.pts.length)return [];
-  const idx=it.chunk.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}(?:[.,]\d+)?/), name=(idx>0?it.chunk.slice(0,idx):'').replace(/[\s,;:\-–]+$/,'').trim();
+  
+  const idx=it.chunk.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}(?:[.,]\d+)?/);
+  let name=(idx>0?it.chunk.slice(0,idx):'').replace(/[\s,;:\-–]+$/,'').trim();
+  
+  let status = '';
+  const statusMatch = it.chunk.match(/(ОТСУТСТВУЕТ|НЕ\s+ДЕЙСТВУЕТ|ВЫСТАВЛЕН|СНЯТ|ПРИТОПЛЕН[А-Я]*|НЕШТАТНОЙ|НЕПРИГОДЕН)/i);
+  if (statusMatch) {
+      status = statusMatch[0].toUpperCase();
+      name = name.replace(new RegExp(status, 'i'), '').trim();
+  }
+
   const nrM=it.chunk.match(/НР\s+(\d+(?:[\s,]+\d+(?![\d-]))*)/i), nr=nrM?nrM[1].replace(/[\s,]+/g,', '):'';
-  return it.pts.map((pt,k)=>({ n:it.n, name:name||('Точка '+it.n), suffix:it.pts.length>1?` (точка ${k+1})`:'', nr,lon:pt[0],lat:pt[1] }));
+  return it.pts.map((pt,k)=>({ 
+      n:it.n, 
+      name:name||('Точка '+it.n), 
+      suffix:it.pts.length>1?` (точка ${k+1})`:'', 
+      status: status,
+      nr,lon:pt[0],lat:pt[1] 
+  }));
 }
 
 function parseOne(rawText, yearCache){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   
-  // Специальный парсер для списков действующих ПРИП (ждем "ГОД" или "ГОДА")
   const activeListM = t0.match(/ДЕЙСТВУЮЩИЕ\s+ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+НА\s+(.+?)\s+ГОД[А-ЯЁ]*\s+(.+)/i);
   if (activeListM) {
       const city = activeListM[1].toUpperCase();
@@ -329,7 +346,6 @@ function parseOne(rawText, yearCache){
   }
 
   const eq=t0.indexOf('=');
-  // Переименовали t в cleanText, чтобы избежать ошибок TDZ
   const cleanText=(eq>=0?t0.slice(0,eq):t0).trim(); 
   if(!cleanText)return null; 
   const snippet=cleanText.slice(0,160);
@@ -422,12 +438,14 @@ function parseOne(rawText, yearCache){
   }
   return{city,pripNum,yearSuffix,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,cancelStr,zones,singleGeometry,points:[],notes};
 }
+
 function geomToKml(g, dLon, dLat){
   const coords = g.pts.map(([lon,lat]) => `${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
   if (g.kind === 'point') return `<Point><coordinates>${coords}</coordinates></Point>`;
   if (g.kind === 'line') return `<LineString><tessellate>1</tessellate><coordinates>\n${coords}\n</coordinates></LineString>`;
   return `<Polygon><tessellate>1</tessellate><altitudeMode>clampToGround</altitudeMode><outerBoundaryIs><LinearRing><coordinates>\n${coords}\n</coordinates></LinearRing></outerBoundaryIs></Polygon>`;
 }
+
 function buildKML(items, isSK42){
   const hexFill = document.getElementById('colorFill').value, hexPoint = document.getElementById('colorPoint').value;
   const colorLine = hexToKml(hexFill, 'ff'), colorFill = hexToKml(hexFill, '4d'), colorPoint = hexToKml(hexPoint, 'ff');
@@ -438,7 +456,24 @@ function buildKML(items, isSK42){
     const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancelStr?`<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
     
     if (p.points && p.points.length > 0) {
-        p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
+        p.points.forEach(pt => { 
+            // ИСПРАВЛЕНО: Имя только ПРИП Город Номер/Год. Остальное в описание.
+            const ptStatusRow = pt.status ? `<b>Статус:</b> <span style="color:#fbbf24">${xmlEscape(pt.status)}</span><br/>` : '';
+            const ptNrRow = pt.nr ? `<b>НР:</b> ${xmlEscape(pt.nr)}<br/>` : '';
+            const ptNameRow = `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}<br/>`;
+            
+            allPlacemarks.push(`<Placemark>
+                <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}</name>
+                <description><![CDATA[
+                    ${ptNameRow}
+                    ${ptNrRow}
+                    ${ptStatusRow}
+                    ${rows.join('<br/>')}
+                ]]></description>
+                <styleUrl>#sPoint</styleUrl>
+                <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
+            </Placemark>`); 
+        });
     } else if (p.zones && p.zones.length > 0) {
         p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
     } else if (p.singleGeometry) {
@@ -501,12 +536,15 @@ document.getElementById('parse').onclick=()=>{
             cardTitle = `ПРИП ${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}/${htmlEscape(r.yearSuffix)}`;
             if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${htmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
             else if (r.points && r.points.length > 0) { 
-                const list = r.points.map(pt => `${pt.n}. ${htmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`).join('<br>');
+                // В превью выводим статус, чтобы вы видели его перед скачиванием
+                const list = r.points.map(pt => {
+                    const stat = pt.status ? ` <span style="color:var(--warning); font-weight:bold;">[${htmlEscape(pt.status)}]</span>` : '';
+                    return `${pt.n}. ${htmlEscape(pt.name + pt.suffix)}${stat} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`;
+                }).join('<br>');
                 coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
             }
             else if (r.singleGeometry) { coordsStr = describeGeom(r.singleGeometry); }
 
-            // --- Проверка отмен ---
             const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
             let match, numsToCancel = new Set();
             while ((match = otmRegex.exec(r.sec1 || '')) !== null) {
