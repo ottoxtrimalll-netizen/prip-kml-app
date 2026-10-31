@@ -74,6 +74,7 @@ summary.card-header::-webkit-details-marker { display: none; }
 .coords-list { font-size: 12px; color: #cbd5e1; line-height: 1.6; font-family: 'SF Mono', monospace;}
 .btn-save { margin-top: 12px; width: 100%; padding: 10px; border-radius: 8px; background: rgba(255,255,255,0.05); border: 1px solid var(--border); color: var(--text-main); font-weight: 600; cursor: pointer; transition: 0.2s; }
 .btn-save.saved { background: rgba(16, 185, 129, 0.2); color: var(--success); border-color: var(--success); }
+.err{background:rgba(127, 29, 29, 0.8); color:#fca5a5; border:1px solid #991b1b; padding:12px; border-radius:10px; margin:8px 0; font-size:13px}
 
 .myprips-controls { display: flex; gap: 10px; margin-bottom: 16px; }
 .myprips-controls button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); cursor:pointer; }
@@ -168,13 +169,16 @@ summary.card-header::-webkit-details-marker { display: none; }
 // ==========================================
 // БАЗА ДАННЫХ (localStorage)
 // ==========================================
-const DB_KEY = 'navahead_db';
+const DB_KEY = 'navahead_db_v2'; // Обновил ключ для сброса несовместимых старых баз
 let db = [];
 
 function loadDB() {
     try {
         const raw = localStorage.getItem(DB_KEY);
         db = raw ? JSON.parse(raw) : [];
+        // Валидация загруженной базы
+        if (!Array.isArray(db)) db = [];
+        db = db.filter(x => x && typeof x === 'object' && x.id && x.city && x.pripNum);
     } catch(e) { db = []; }
     updateBadge();
 }
@@ -191,14 +195,22 @@ function updateBadge() {
 }
 
 // ==========================================
-// УТИЛИТЫ
+// УТИЛИТЫ И БЕЗОПАСНОСТЬ
 // ==========================================
+function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
+function htmlEscape(s){return String(s).replace(/[&<>"']/g, function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function hexToKml(hex, alpha='ff') { if (!hex || hex.length !== 7) return alpha + '000000'; return alpha + hex.slice(5,7) + hex.slice(3,5) + hex.slice(1,3); }
+function formatDM(deg, isLat) { if (deg === undefined) return ''; const d = Math.floor(Math.abs(deg)); const m = (Math.abs(deg) - d) * 60; const dir = isLat ? (deg >= 0 ? 'С' : 'Ю') : (deg >= 0 ? 'В' : 'З'); return `${d}° ${m.toFixed(3)}′ ${dir}`; }
+function fixOcr(text) { return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m => m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2')); }
+
 const MONTHS_MAP = {'ЯНВ':0, 'ФЕВ':1, 'МАР':2, 'АПР':3, 'МАЯ':4, 'МАЙ':4, 'ИЮН':5, 'ИЮЛ':6, 'АВГ':7, 'СЕН':8, 'ОКТ':9, 'НОЯ':10, 'ДЕК':11};
 const MONTHS_FULL = ['января','февраля','марта','апреля','мая','июня','июля','августа','сентября','октября','ноября','декабря'];
-function monthFull(m){ const s=(m||'').toUpperCase(); return MONTHS_FULL[s.slice(0,3)]||s.toLowerCase(); }
-function parseExpiryDate(cancelStr) {
-    if(!cancelStr) return null;
-    const m = cancelStr.match(/(\d{1,2})\s+([а-яё]+)(?:\s+в\s+(\d{2}):(\d{2}))?/i);
+function monthFull(m){ const s=(m||'').toUpperCase().slice(0,3); return MONTHS_FULL[MONTHS_MAP[s]] || m.toLowerCase(); }
+
+function parseExpiryDate(str) {
+    if(!str) return null;
+    // Ищем дату типа "31 октября" или "31 октября в 19:00"
+    const m = str.match(/(\d{1,2})\s+([а-яё]+)(?:\s+в\s+(\d{2}):(\d{2}))?/i);
     if(!m) return null;
     const d = parseInt(m[1], 10), mon = MONTHS_MAP[m[2].toUpperCase().slice(0,3)];
     if(mon === undefined) return null;
@@ -207,12 +219,9 @@ function parseExpiryDate(cancelStr) {
     if (date.getTime() < Date.now() - 30 * 24 * 60 * 60 * 1000) date.setFullYear(year + 1);
     return date.getTime();
 }
-function showToast(msg, isError = false) { const t = document.getElementById('toast'); t.innerHTML = msg; t.className = 'toast show' + (isError ? ' error' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
+
+function showToast(msg, isError = false) { const t = document.getElementById('toast'); t.innerHTML = htmlEscape(msg); t.className = 'toast show' + (isError ? ' error' : ''); setTimeout(() => t.classList.remove('show'), 3000); }
 function vibrate(ms=50) { if(navigator.vibrate) try{navigator.vibrate(ms);}catch(e){} }
-function xmlEscape(s){return String(s).replace(/[<>&'"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;',"'":'&apos;','"':'&quot;'})[c])}
-function hexToKml(hex, alpha='ff') { if (!hex || hex.length !== 7) return alpha + '000000'; return alpha + hex.slice(5,7) + hex.slice(3,5) + hex.slice(1,3); }
-function formatDM(deg, isLat) { if (deg === undefined) return ''; const d = Math.floor(Math.abs(deg)); const m = (Math.abs(deg) - d) * 60; const dir = isLat ? (deg >= 0 ? 'С' : 'Ю') : (deg >= 0 ? 'В' : 'З'); return `${d}° ${m.toFixed(3)}′ ${dir}`; }
-function fixOcr(text) { return text.replace(/\d{1,3}\s*-\s*[0-9lIiOoZz|!][0-9lIiOoZz|!.,\-]*/g, m => m.replace(/[lIi|!]/g, '1').replace(/[Oo]/g, '0').replace(/[Zz]/g, '2')); }
 function capFirst(s){return s?s.charAt(0).toUpperCase()+s.slice(1):s}
 
 // ==========================================
@@ -251,7 +260,6 @@ function buildGeometry(text) {
         for (let i = 0; i <= 36; i++) { const a = (i * 10) * Math.PI / 180, lat = cLat + (radiusM * Math.cos(a)) / 111320, lon = cLon + (radiusM * Math.sin(a)) / (111320 * Math.cos(cLat * Math.PI / 180)); ring.push([lon, lat]); }
         return { kind: 'circle', pts: ring, radiusM, cLat, cLon };
     }
-    
     if (pts.length === 0) return null;
     if (pts.length === 1) return { kind: 'point', pts: pts };
     if (pts.length === 2) return { kind: 'line', pts: pts };
@@ -291,16 +299,21 @@ function chunkToPoints(it){
   const nrM=it.chunk.match(/НР\s+(\d+(?:[\s,]+\d+(?![\d-]))*)/i), nr=nrM?nrM[1].replace(/[\s,]+/g,', '):'';
   return it.pts.map((pt,k)=>({ n:it.n, name:name||('Точка '+it.n), suffix:it.pts.length>1?` (точка ${k+1})`:'', nr,lon:pt[0],lat:pt[1] }));
 }
-function parseOne(rawText){
+
+// Передаем yearCache в функцию
+function parseOne(rawText, yearCache){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
   
-  const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/\d+)?\s+(.+)/i);
+  const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/(\d+))?\s+(.+)/i);
   if (!head) { if(t.length<=80 && extractCoordinates(t).length===0)return {skip:true,label:t}; return {error:'Не удалось разобрать заголовок ПРИП',snippet,pripNum:'?',mapNum:'',city:''}; }
   
   const city = head[1].toUpperCase(), pripNum = head[2]; 
-  let rest = head[3];
+  let rest = head[4];
   
+  // Ищем год в кэше, если в заголовке его нет
+  let yearSuffix = head[3] ? `_${head[3]}` : (yearCache[`${city}_${pripNum}`] ? `_${yearCache[`${city}_${pripNum}`]}` : '');
+
   let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
   if (mapsM) { mapNum = mapsM[1].trim().split(/\s+/).join(', '); rest = rest.slice(mapsM[0].length); }
   let book = ''; const bookM = rest.match(/^(?:КНИГА|КНИГИ)\s+(\d+)\s*/i);
@@ -309,13 +322,9 @@ function parseOne(rawText){
   if(!startM && extractCoordinates(t).length===0) return {skip:true, label:`ПРИП ${city} ${pripNum}`};
   
   let areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
-  
   if (!areaRaw) {
       const firstCoordIdx = rest.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}/);
-      if (firstCoordIdx > 0) {
-          areaRaw = rest.slice(0, firstCoordIdx).trim();
-          areaRaw = areaRaw.replace(/[\sВС]+$/gi, ''); // Очистка от предлога "В" в конце
-      }
+      if (firstCoordIdx > 0) { areaRaw = rest.slice(0, firstCoordIdx).trim().replace(/\s+[ВB]\s*$/i, ''); }
   }
 
   const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
@@ -324,8 +333,41 @@ function parseOne(rawText){
   let sec1; if(isList){ sec1=after1.trim(); }else{ const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/); sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim(); }
   const body=sec1||t;
   
-  let cancel=''; const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
-  if(otmM){ const d=otmM[1],mon=otmM[2].toUpperCase(); if(d.length===6)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`; else if(d.length===4)cancel=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`; else if(d.length===2)cancel=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`; else cancel=`${d} ${monthFull(mon)}`; }
+  let cancel=''; 
+  let cancelStr = ''; // Для отображения (может быть из ОТМ или из периода)
+  
+  const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
+  if(otmM){ 
+      const d=otmM[1],mon=otmM[2].toUpperCase(); 
+      if(d.length===6) cancelStr=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:${d.slice(4,6)}`; 
+      else if(d.length===4) cancelStr=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`; 
+      else if(d.length===2) cancelStr=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`; 
+      else cancelStr=`${d} ${monthFull(mon)}`;
+      cancel = cancelStr; // Для совместимости
+  }
+  
+  let period=''; 
+  const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
+  if(pM){ 
+      const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6]; 
+      let str = `${d1} ${monthFull(m1||m2)}`; 
+      if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`; 
+      str += ` – ${d2} ${monthFull(m2)}`; 
+      if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`; 
+      period = str; 
+      
+      // Если нет отмены, берем дату окончания периода
+      if (!cancelStr) {
+          let periodEnd = `${d2} ${monthFull(m2)}`;
+          if(t2) periodEnd += ` в ${t2.slice(0,2)}:${t2.slice(2,4)}`;
+          else periodEnd += ` (время не указано)`;
+          cancelStr = `до ${periodEnd}`; // Для отображения
+          cancel = cancelStr;
+      }
+  }
+  
+  let hours=''; const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/); if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`; else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
+
   const notes=[]; if(/СОБЛЮДАТЬ\s+ОСТОРОЖНОСТЬ/i.test(sec1))notes.push('соблюдать осторожность');
   
   if(isList){
@@ -333,19 +375,16 @@ function parseOne(rawText){
     if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
     const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i), sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw), cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
     const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
-    return{city,pripNum,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,zones:[],singleGeometry:null,points,notes};
+    return{city,pripNum,yearSuffix,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,cancelStr,zones:[],singleGeometry:null,points,notes};
   }
   
   let typeLabel;
   if(/СТРЕЛЬБ|АРТИЛЛЕР|УЧЕНИЯ|ПУСКИ/i.test(sec1)){typeLabel='Стрельбы / Пуски / Учения';} 
   else if(/ГИДРОТЕХ/i.test(sec1)){typeLabel='Гидротехнические работы';} 
   else if(/ЗАПРЕТ/i.test(sec1)){typeLabel='Запрет плавания';} 
-  else if(/ПРЕПЯТСТВИЕ|ЗАТОНУВШ|ЯКОРЬ|БОЧКА|БУЙ|ОГОНЬ/i.test(sec1)){typeLabel='Опасность / Объект';}
+  else if(/БУЙ|ОГОНЬ|ЗНАК|ВЕХА|СНО/i.test(sec1)){typeLabel='Навигационное оборудование';}
+  else if(/ПРЕПЯТСТВИЕ|ЗАТОНУВШ|ЯКОРЬ|БОЧКА/i.test(sec1)){typeLabel='Опасность / Объект';}
   else{typeLabel='Специальные работы';}
-  
-  let period=''; const pM=sec1.match(/(\d{1,2})(\d{4})?\s+(?:([А-ЯЁ]{3,})\s+)?ПО\s+(\d{1,2})(\d{4})?\s+([А-ЯЁ]{3,})/i);
-  if(pM){ const d1=parseInt(pM[1],10),t1=pM[2],m1=pM[3],d2=parseInt(pM[4],10),t2=pM[5],m2=pM[6]; let str = `${d1} ${monthFull(m1||m2)}`; if(t1) str += ` ${t1.slice(0,2)}:${t1.slice(2,4)}`; str += ` – ${d2} ${monthFull(m2)}`; if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`; period = str; }
-  let hours=''; const hM=sec1.match(/(\d{4})\s+ДО\s+(\d{4})/); if(hM)hours=`${hM[1].slice(0,2)}:${hM[1].slice(2,4)}–${hM[2].slice(0,2)}:${hM[2].slice(2,4)}`; else if(/КРУГЛОСУТОЧНО/i.test(sec1))hours='круглосуточно';
   
   const zones = []; let singleGeometry = null; const zoneParts = body.split(/(?=(?<![А-ЯЁA-Z0-9])(?<!\d\s{0,3})[А-ЯA-Z]\.\s*(?:РАЙОН|УЧАСТОК|\d{1,3}\s*-\s*\d{1,2}))/i);
   if (zoneParts.length > 1) {
@@ -354,7 +393,7 @@ function parseOne(rawText){
   } else {
       singleGeometry = buildGeometry(body); if (!singleGeometry) return {error:'Не удалось выделить координаты',snippet,pripNum,mapNum,city};
   }
-  return{city,pripNum,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,zones,singleGeometry,points:[],notes};
+  return{city,pripNum,yearSuffix,mapNum,book,area:areaRaw,sec1,typeLabel,period,hours,cancel,cancelStr,zones,singleGeometry,points:[],notes};
 }
 function geomToKml(g, dLon, dLat){
   const coords = g.pts.map(([lon,lat]) => `${(lon+dLon).toFixed(6)},${(lat+dLat).toFixed(6)},0`).join('\n');
@@ -368,7 +407,7 @@ function buildKML(items, isSK42){
   const allPlacemarks = []; const dLat = isSK42 ? 0.0014 : 0, dLon = isSK42 ? -0.0020 : 0;
   
   items.forEach((p) => {
-    const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancel?`<b>Отмена:</b> ${xmlEscape(p.cancel)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
+    const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancelStr?`<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
     
     if (p.points && p.points.length > 0) {
         p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
@@ -402,46 +441,92 @@ document.getElementById('parse').onclick=()=>{
       
       let text = fixOcr(rawText.replace(/[–—‑]/g, '-').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' '));
       
-      // ИСПРАВЛЕНО: \n* заменено на \r?\n?, чтобы не съедать заголовок следующего сообщения
-      text = text.replace(/([^\n\r])\r?\n?ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+(?:КАРТ[АЫ]\s+)?(?:\d+\s+)*/gi, '$1 ');
+      // Ищем года в служебных шапках и кэшируем их: ПРИП МУРМАНСК 124/26
+      const yearCache = {};
+      const yearRegex = /ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)\/(\d+)/gi;
+      let ym;
+      while((ym = yearRegex.exec(text)) !== null) {
+          yearCache[`${ym[1].toUpperCase()}_${ym[2]}`] = ym[3];
+      }
       
       text = text.replace(/([^\s\d\-.,])([12]\s*\.)/g, '$1 $2').replace(/([^\s])ПРИП\s+/gi, '$1 ПРИП ');
-      
-      checkCancellations(text);
 
       const parts=text.split(/(?=ПРИП\s+[А-ЯЁ][А-ЯЁ-]*\s+\d+(?:\/\d+)?\s+)/i).map(s=>s.trim()).filter(s=>s);
       if(!parts.length){ preview.innerHTML='<div class="err">Не найдено сообщений ПРИП.</div>'; return; }
 
+      let pendingCancels = [];
+
       for(const p of parts){
-        const r=parseOne(p); if(!r) continue;
-        if(r.skip){ preview.insertAdjacentHTML('beforeend',`<p style="font-size:12px; color:var(--text-muted); padding-left:8px; border-left:2px solid #475569;">Пропущен: ${xmlEscape(r.label)}</p>`); continue; }
-        if(r.error){ preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0;">Ошибка</h3><div class="err">${xmlEscape(r.error)}</div></div>`); continue; }
+        const r=parseOne(p, yearCache); if(!r) continue;
+        if(r.skip){ preview.insertAdjacentHTML('beforeend',`<p style="font-size:12px; color:var(--text-muted); padding-left:8px; border-left:2px solid #475569;">Пропущен: ${htmlEscape(r.label)}</p>`); continue; }
+        if(r.error){ preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0;">Ошибка</h3><div class="err">${htmlEscape(r.error)}</div></div>`); continue; }
         
+        // --- ПРОВЕРКА ОТМЕН ДЛЯ ЭТОГО СООБЩЕНИЯ ---
+        const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
+        let match, numsToCancel = new Set();
+        while ((match = otmRegex.exec(r.sec1 || '')) !== null) {
+            const nums = match[1].match(/\d+/g);
+            if(nums) nums.forEach(n => numsToCancel.add(n));
+        }
+        if (numsToCancel.size > 0) {
+            numsToCancel.forEach(n => {
+                // Ищем строго по городу и номеру
+                const matches = db.filter(saved => saved.pripNum === n && saved.city === r.city && !saved.isExpired);
+                matches.forEach(m => {
+                    if (!pendingCancels.find(x => x.id === m.id)) pendingCancels.push(m);
+                });
+            });
+        }
+        // ------------------------------------------
+
         const currentIdx = parsed.length;
         parsed.push(r);
 
         let coordsStr = '';
-        if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${xmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
-        else if (r.points && r.points.length > 0) { coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p>`; }
+        if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${htmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
+        else if (r.points && r.points.length > 0) { 
+            const list = r.points.map(pt => `${pt.n}. ${htmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`).join('<br>');
+            coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
+        }
         else if (r.singleGeometry) { coordsStr = describeGeom(r.singleGeometry); }
 
         preview.insertAdjacentHTML('beforeend',`
-        <details class="card" style="--card-color: ${document.getElementById('colorFill').value}">
+        <details class="card" style="--card-color: ${htmlEscape(document.getElementById('colorFill').value)}">
           <summary class="card-header">
-            <div class="card-title"><span>ПРИП ${xmlEscape(r.city)} ${xmlEscape(r.pripNum)}</span><span style="font-size:12px;">▼</span></div>
-            <div class="card-meta"><span class="tag">${xmlEscape(r.typeLabel)}</span>${r.period?`<span>📅 ${xmlEscape(r.period)}</span>`:''}</div>
+            <div class="card-title"><span>ПРИП ${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}</span><span style="font-size:12px;">▼</span></div>
+            <div class="card-meta"><span class="tag">${htmlEscape(r.typeLabel)}</span>${r.period?`<span>📅 ${htmlEscape(r.period)}</span>`:''}</div>
           </summary>
           <div class="card-body">
-            <p><b>Район:</b> ${xmlEscape(r.area||'—')}</p>
-            <p><b>Карты:</b> ${xmlEscape(r.mapNum||'—')}</p>
+            <p><b>Район:</b> ${htmlEscape(r.area||'—')}</p>
+            <p><b>Карты:</b> ${htmlEscape(r.mapNum||'—')}</p>
             ${coordsStr}
-            ${r.cancel?`<p><b>Отмена:</b> ${xmlEscape(r.cancel)}</p>`:''}
+            ${r.cancelStr?`<p><b>Отмена:</b> ${htmlEscape(r.cancelStr)}</p>`:''}
             <button class="btn-save" id="save-btn-${currentIdx}" onclick="saveToTracker(${currentIdx})">📌 Сохранить в Мои ПРИП</button>
           </div>
         </details>`);
       }
+      
       if(parsed.length > 0) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
-    } catch(e) { console.error(e); preview.insertAdjacentHTML('beforeend', `<div class="error-card"><div class="err">Ошибка: ${xmlEscape(e.message)}</div></div>`); } finally { spinner.style.display = 'none'; }
+      
+      // Показываем окно отмен, если что-то нашли
+      if (pendingCancels.length > 0) {
+          let html = `<p style="margin-bottom:16px; font-size:14px; color:var(--text-muted);">В тексте найдена отмена. Отметьте, какие ПРИП удалить из базы:</p><div style="max-height: 250px; overflow-y: auto;">`;
+          pendingCancels.forEach(r => {
+              html += `<label class="cancel-item"><input type="checkbox" class="cancel-cb" value="${htmlEscape(r.id)}" checked><span style="font-size:15px;">ПРИП <b>${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}</b></span></label>`;
+          });
+          html += `</div>`;
+          showCustomModal('Найдена отмена!', html, () => {
+              const checkboxes = document.querySelectorAll('.cancel-cb:checked');
+              const toDelete = Array.from(checkboxes).map(cb => cb.value);
+              if (toDelete.length > 0) {
+                  db = db.filter(p => !toDelete.includes(p.id));
+                  saveDB(); renderMyPrips();
+                  showToast(`Удалено: ${toDelete.length}`);
+              }
+          });
+      }
+
+    } catch(e) { console.error(e); preview.insertAdjacentHTML('beforeend', `<div class="error-card"><div class="err">Ошибка: ${htmlEscape(e.message)}</div></div>`); } finally { spinner.style.display = 'none'; }
   }, 10);
 };
 
@@ -454,54 +539,36 @@ dlBtn.onclick=()=>{
 };
 
 function saveToTracker(idx) {
-    const p = parsed[idx], id = `${p.city}_${p.pripNum}`;
-    if (db.find(x => x.id === id)) { showToast('Уже сохранен', true); return; }
-    const expiry = parseExpiryDate(p.cancel);
+    const p = parsed[idx];
     
-    db.push({ id, city: p.city, pripNum: p.pripNum, typeLabel: p.typeLabel, cancelStr: p.cancel, expiryTimestamp: expiry, isExpired: expiry ? expiry < Date.now() : false, rawData: p });
+    // Генерируем ID: если год неизвестен, используем текущий
+    const year = p.yearSuffix || '_' + new Date().getFullYear(); 
+    const id = `${p.city}_${p.pripNum}${year}`; 
+    
+    // Проверяем, есть ли уже такой ПРИП (без учета года, если год неизвестен)
+    const existing = db.find(x => x.city === p.city && x.pripNum === p.pripNum && (!p.yearSuffix || x.yearSuffix === p.yearSuffix));
+    if (existing) { 
+        showModal('Уже существует', `ПРИП ${p.city} ${p.pripNum} уже есть в базе. Удалить старую запись и сохранить новую?`, () => {
+            db = db.filter(x => x.id !== existing.id);
+            saveDB();
+            proceedSave(p, id);
+        });
+        return; 
+    }
+    
+    proceedSave(p, id);
+}
+
+function proceedSave(p, id) {
+    let expiry = parseExpiryDate(p.cancelStr || p.cancel);
+    
+    db.push({ id, city: p.city, pripNum: p.pripNum, yearSuffix: p.yearSuffix, typeLabel: p.typeLabel, cancelStr: p.cancelStr || p.cancel, expiryTimestamp: expiry, isExpired: expiry ? expiry < Date.now() : false, rawData: p });
     saveDB(); 
     
+    const idx = parsed.findIndex(x => x.city === p.city && x.pripNum === p.pripNum);
     const btn = document.getElementById(`save-btn-${idx}`);
     if(btn) { btn.textContent = '✅ Сохранено'; btn.classList.add('saved'); btn.disabled = true; }
     showToast('ПРИП добавлен в трекер'); checkReminders();
-}
-
-function checkCancellations(text) {
-    const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
-    let match, numsToCancel = new Set();
-    
-    while ((match = otmRegex.exec(text)) !== null) {
-        const nums = match[1].match(/\d+/g);
-        if(nums) nums.forEach(n => numsToCancel.add(n));
-    }
-
-    if (numsToCancel.size === 0) return;
-
-    let cancelGroups = [];
-    numsToCancel.forEach(n => {
-        const matches = db.filter(saved => saved.pripNum === n && !saved.isExpired);
-        if (matches.length > 0) cancelGroups.push({ num: n, records: matches });
-    });
-
-    if (cancelGroups.length > 0) {
-        let html = `<p style="margin-bottom:16px; font-size:14px; color:var(--text-muted);">В тексте найдена отмена. Отметьте, какие ПРИП удалить из базы:</p><div style="max-height: 250px; overflow-y: auto;">`;
-        cancelGroups.forEach(group => {
-            group.records.forEach(r => {
-                html += `<label class="cancel-item"><input type="checkbox" class="cancel-cb" value="${r.id}" checked><span style="font-size:15px;">ПРИП <b>${r.city} ${r.pripNum}</b></span></label>`;
-            });
-        });
-        html += `</div>`;
-        
-        showCustomModal('Найдена отмена!', html, () => {
-            const checkboxes = document.querySelectorAll('.cancel-cb:checked');
-            const toDelete = Array.from(checkboxes).map(cb => cb.value);
-            if (toDelete.length > 0) {
-                db = db.filter(p => !toDelete.includes(p.id));
-                saveDB(); renderMyPrips();
-                showToast(`Удалено: ${toDelete.length}`);
-            }
-        });
-    }
 }
 
 function renderMyPrips() {
@@ -513,14 +580,14 @@ function renderMyPrips() {
     if (active.length > 0) {
         list.insertAdjacentHTML('beforeend', `<div class="section-title">Активные (${active.length})</div>`);
         active.sort((a,b) => (a.expiryTimestamp||Infinity) - (b.expiryTimestamp||Infinity)).forEach(p => {
-            let dateTxt = p.cancelStr ? `Действует до: ${p.cancelStr}` : 'Срок не указан';
+            let dateTxt = p.cancelStr ? `Срок: ${htmlEscape(p.cancelStr)}` : 'Срок не указан';
             if(p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
-            list.insertAdjacentHTML('beforeend', `<div class="saved-card" style="--card-color: var(--success)"><div class="saved-title">ПРИП ${p.city} ${p.pripNum}</div><div class="saved-meta">${dateTxt}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${p.id}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${p.id}')">🗑 Удалить</button></div></div>`);
+            list.insertAdjacentHTML('beforeend', `<div class="saved-card" style="--card-color: var(--success)"><div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div><div class="saved-meta">${dateTxt}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button></div></div>`);
         });
     }
     if (expired.length > 0) {
         list.insertAdjacentHTML('beforeend', `<div class="section-title" style="display:flex; justify-content:space-between;"><span>Архив (${expired.length})</span><span style="color:var(--danger); cursor:pointer; text-transform:none;" onclick="clearArchive()">Очистить архив</span></div>`);
-        expired.forEach(p => { list.insertAdjacentHTML('beforeend', `<div class="saved-card expired" style="--card-color: #475569"><div class="saved-title">ПРИП ${p.city} ${p.pripNum}</div><div class="saved-meta">Истек: ${p.cancelStr}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${p.id}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${p.id}')">🗑 Удалить</button></div></div>`); });
+        expired.forEach(p => { list.insertAdjacentHTML('beforeend', `<div class="saved-card expired" style="--card-color: #475569"><div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div><div class="saved-meta">Истек: ${htmlEscape(p.cancelStr || '—')}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button></div></div>`); });
     }
 }
 
@@ -536,7 +603,11 @@ function clearArchive() {
     }, 'Очистить'); 
 }
 
-function downloadSaved(id) { const p = db.find(x => x.id === id).rawData, kml = buildKML([p], false); const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download = `ПРИП - ${p.city} ${p.pripNum}.kml`; a.click(); showToast('Файл сохранен'); }
+function downloadSaved(id) { 
+    const p = db.find(x => x.id === id); if(!p) return;
+    const kml = buildKML([p.rawData], document.getElementById('sk42').checked);
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download = `ПРИП - ${p.city} ${p.pripNum}.kml`; a.click(); showToast('Файл сохранен'); 
+}
 
 // Бэкап
 document.getElementById('btnExport').onclick = () => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(db, null, 2)],{type:'application/json'})); a.download = `navahead_backup_${new Date().toISOString().slice(0,10)}.json`; a.click(); };
@@ -548,11 +619,13 @@ document.getElementById('fileImport').onchange = (e) => {
             const imported = JSON.parse(ev.target.result); 
             if (Array.isArray(imported)) { 
                 imported.forEach(newItem => { 
-                    if (!db.find(x => x.id === newItem.id)) db.push(newItem); 
+                    if (newItem && newItem.id && newItem.city && newItem.pripNum && !db.find(x => x.id === newItem.id)) {
+                        db.push(newItem); 
+                    }
                 }); 
                 saveDB(); renderMyPrips(); showToast('База загружена!'); 
-            } 
-        } catch(err) { showToast('Ошибка чтения', true); } 
+            } else { showToast('Неверный формат файла', true); }
+        } catch(err) { showToast('Ошибка чтения файла', true); } 
     };
     reader.readAsText(file); e.target.value = '';
 };
@@ -572,10 +645,16 @@ function showCustomModal(title, html, onConfirm, yesText = 'Подтвердит
 function checkReminders() {
     const now = Date.now(), banner = document.getElementById('warning-banner'); let urgent = [];
     db.forEach(p => { if (p.expiryTimestamp && p.expiryTimestamp > now && (p.expiryTimestamp - now) < 86400000) urgent.push(p); });
-    if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${u.city} ${u.pripNum} (до ${u.cancelStr})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
+    if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${htmlEscape(u.city)} ${htmlEscape(u.pripNum)} (${htmlEscape(u.cancelStr)})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
 }
 
-// Инициализация при старте
+// Инициализация и запрос постоянного хранилища
+if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().then(granted => {
+        if (!granted) console.log('Постоянное хранилище не предоставлено. Браузер может удалить базу.');
+    });
+}
+
 loadDB();
 checkReminders();
 
