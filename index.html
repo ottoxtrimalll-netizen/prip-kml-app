@@ -373,7 +373,11 @@ function parseOne(rawText, yearCache){
 
   const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
   const items = parsePointItems(after1), withPts = items.filter(it => it.pts.length > 0);
-  const isList = !/РАДИУС/i.test(after1) && !items.some(it => it.pts.length >= 3) && (withPts.length >= 2 || (withPts.length === 1 && /НЕ\s+ДЕЙСТВУ/i.test(areaRaw + ' ' + after1)));
+  
+  // ФИКС: Ищем маркеры объектов и статусов, чтобы точно распознать точечный объект
+  const hasObjectKeywords = /(НЕ\s+ДЕЙСТВУ|ОТСУТСТВ|ВЫСТАВЛЕН|СНЯТ|ПРИТОПЛЕН|НЕПРИГОДЕН|БУЙ|ОГОНЬ|ЗНАК|ВЕХА|СНО)/i.test(after1);
+  const isList = !/РАДИУС/i.test(after1) && !items.some(it => it.pts.length >= 3) && (withPts.length >= 2 || (withPts.length === 1 && hasObjectKeywords));
+  
   let sec1; if(isList){ sec1=after1.trim(); }else{ const endIdx=after1.search(/\s+2\s*\.(?!\d)|\s*ОТМ\s+ЭТОТ/); sec1=(endIdx>=0?after1.slice(0,endIdx):after1).trim(); }
   const body=sec1||cleanText;
   
@@ -417,7 +421,7 @@ function parseOne(rawText, yearCache){
     const points=[]; items.forEach(it=>chunkToPoints(it).forEach(p=>points.push(p)));
     if(!points.length)return {error:'Не удалось выделить координаты объектов',snippet,pripNum,mapNum,city};
     const condIdx=areaRaw.search(/(?:^|\s)(?:ОГН|НЕ\s+ДЕЙСТВУ)/i), sea=condIdx>0?areaRaw.slice(0,condIdx).trim():(condIdx===0?'':areaRaw), cond=condIdx>=0?areaRaw.slice(condIdx).trim():'';
-    const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное предупреждение (объекты)';
+    const typeLabel=cond?capFirst(cond.toLowerCase()):'Навигационное оборудование';
     return{city,pripNum,yearSuffix,mapNum,book,area:sea,sec1,typeLabel,period:'',hours:'',cancel,cancelStr,zones:[],singleGeometry:null,points,notes};
   }
   
