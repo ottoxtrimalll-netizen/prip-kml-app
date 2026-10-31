@@ -453,32 +453,42 @@ function buildKML(items, isSK42){
   
   items.forEach((p) => {
     if (p.isActiveList) return;
-    const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancelStr?`<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
-    
+    const generalRows = [
+      `<b>${xmlEscape(p.typeLabel)}</b>`, 
+      p.period ? `<b>Период:</b> ${xmlEscape(p.period)}` : '', 
+      p.hours ? `<b>Время:</b> ${xmlEscape(p.hours)}` : '', 
+      p.area ? `<b>Район:</b> ${xmlEscape(p.area)}` : '', 
+      p.mapNum ? `<b>Карты:</b> ${xmlEscape(p.mapNum)}` : '', 
+      p.cancelStr ? `<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}` : '', 
+      isSK42 ? `<i>Поправка СК-42.</i>` : '', 
+      p.notes.length ? `<i>${xmlEscape(p.notes.join('; '))}.</i>` : ''
+    ].filter(Boolean);
+
     if (p.points && p.points.length > 0) {
         p.points.forEach(pt => { 
-            // ИСПРАВЛЕНО: Имя только ПРИП Город Номер/Год. Остальное в описание.
-            const ptStatusRow = pt.status ? `<b>Статус:</b> <span style="color:#fbbf24">${xmlEscape(pt.status)}</span><br/>` : '';
-            const ptNrRow = pt.nr ? `<b>НР:</b> ${xmlEscape(pt.nr)}<br/>` : '';
-            const ptNameRow = `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}<br/>`;
+            // ФИКС: Убираем span, используем <br>, ставим важное в самое начало
+            let ptDesc = '';
+            if (pt.name) ptDesc += `<b>Объект:</b> ${xmlEscape(pt.name + pt.suffix)}<br>`;
+            if (pt.status) ptDesc += `<b>Статус:</b> ${xmlEscape(pt.status)}<br>`;
+            if (pt.nr) ptDesc += `<b>НР:</b> ${xmlEscape(pt.nr)}<br>`;
             
+            let fullDesc = ptDesc;
+            if (ptDesc) fullDesc += '<br>';
+            fullDesc += generalRows.join('<br>');
+
             allPlacemarks.push(`<Placemark>
                 <name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}</name>
-                <description><![CDATA[
-                    ${ptNameRow}
-                    ${ptNrRow}
-                    ${ptStatusRow}
-                    ${rows.join('<br/>')}
-                ]]></description>
+                <description><![CDATA[${fullDesc}]]></description>
                 <styleUrl>#sPoint</styleUrl>
                 <Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point>
             </Placemark>`); 
         });
     } else if (p.zones && p.zones.length > 0) {
-        p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
+        const desc = generalRows.join('<br>');
+        p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${desc}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
     } else if (p.singleGeometry) {
         const styleUrl = p.singleGeometry.kind === 'point' ? '#sPoint' : '#sPoly';
-        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>${styleUrl}</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
+        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}</name><description><![CDATA[${generalRows.join('<br>')}]]></description><styleUrl>${styleUrl}</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
     }
   });
   
@@ -536,7 +546,6 @@ document.getElementById('parse').onclick=()=>{
             cardTitle = `ПРИП ${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}/${htmlEscape(r.yearSuffix)}`;
             if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${htmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
             else if (r.points && r.points.length > 0) { 
-                // В превью выводим статус, чтобы вы видели его перед скачиванием
                 const list = r.points.map(pt => {
                     const stat = pt.status ? ` <span style="color:var(--warning); font-weight:bold;">[${htmlEscape(pt.status)}]</span>` : '';
                     return `${pt.n}. ${htmlEscape(pt.name + pt.suffix)}${stat} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`;
