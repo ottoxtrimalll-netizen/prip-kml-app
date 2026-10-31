@@ -169,14 +169,13 @@ summary.card-header::-webkit-details-marker { display: none; }
 // ==========================================
 // БАЗА ДАННЫХ (localStorage)
 // ==========================================
-const DB_KEY = 'navahead_db_v2'; // Обновил ключ для сброса несовместимых старых баз
+const DB_KEY = 'navahead_db_v2';
 let db = [];
 
 function loadDB() {
     try {
         const raw = localStorage.getItem(DB_KEY);
         db = raw ? JSON.parse(raw) : [];
-        // Валидация загруженной базы
         if (!Array.isArray(db)) db = [];
         db = db.filter(x => x && typeof x === 'object' && x.id && x.city && x.pripNum);
     } catch(e) { db = []; }
@@ -209,7 +208,6 @@ function monthFull(m){ const s=(m||'').toUpperCase().slice(0,3); return MONTHS_F
 
 function parseExpiryDate(str) {
     if(!str) return null;
-    // Ищем дату типа "31 октября" или "31 октября в 19:00"
     const m = str.match(/(\d{1,2})\s+([а-яё]+)(?:\s+в\s+(\d{2}):(\d{2}))?/i);
     if(!m) return null;
     const d = parseInt(m[1], 10), mon = MONTHS_MAP[m[2].toUpperCase().slice(0,3)];
@@ -300,7 +298,6 @@ function chunkToPoints(it){
   return it.pts.map((pt,k)=>({ n:it.n, name:name||('Точка '+it.n), suffix:it.pts.length>1?` (точка ${k+1})`:'', nr,lon:pt[0],lat:pt[1] }));
 }
 
-// Передаем yearCache в функцию
 function parseOne(rawText, yearCache){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
   const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
@@ -311,7 +308,6 @@ function parseOne(rawText, yearCache){
   const city = head[1].toUpperCase(), pripNum = head[2]; 
   let rest = head[4];
   
-  // Ищем год в кэше, если в заголовке его нет
   let yearSuffix = head[3] ? `_${head[3]}` : (yearCache[`${city}_${pripNum}`] ? `_${yearCache[`${city}_${pripNum}`]}` : '');
 
   let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
@@ -334,7 +330,7 @@ function parseOne(rawText, yearCache){
   const body=sec1||t;
   
   let cancel=''; 
-  let cancelStr = ''; // Для отображения (может быть из ОТМ или из периода)
+  let cancelStr = ''; 
   
   const otmM=t.match(/ОТМ\s+ЭТОТ\s+НР\s+(\d{2,6})\s*([А-ЯЁ]+)/i);
   if(otmM){ 
@@ -343,7 +339,7 @@ function parseOne(rawText, yearCache){
       else if(d.length===4) cancelStr=`${parseInt(d.slice(0,2),10)} ${monthFull(mon)} в ${d.slice(2,4)}:00`; 
       else if(d.length===2) cancelStr=`${parseInt(d,10)} ${monthFull(mon)} (время не указано)`; 
       else cancelStr=`${d} ${monthFull(mon)}`;
-      cancel = cancelStr; // Для совместимости
+      cancel = cancelStr; 
   }
   
   let period=''; 
@@ -356,12 +352,11 @@ function parseOne(rawText, yearCache){
       if(t2) str += ` ${t2.slice(0,2)}:${t2.slice(2,4)}`; 
       period = str; 
       
-      // Если нет отмены, берем дату окончания периода
       if (!cancelStr) {
           let periodEnd = `${d2} ${monthFull(m2)}`;
           if(t2) periodEnd += ` в ${t2.slice(0,2)}:${t2.slice(2,4)}`;
           else periodEnd += ` (время не указано)`;
-          cancelStr = `до ${periodEnd}`; // Для отображения
+          cancelStr = `до ${periodEnd}`;
           cancel = cancelStr;
       }
   }
@@ -441,7 +436,6 @@ document.getElementById('parse').onclick=()=>{
       
       let text = fixOcr(rawText.replace(/[–—‑]/g, '-').replace(/[\u200B-\u200D\uFEFF\u00A0]/g, ' '));
       
-      // Ищем года в служебных шапках и кэшируем их: ПРИП МУРМАНСК 124/26
       const yearCache = {};
       const yearRegex = /ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)\/(\d+)/gi;
       let ym;
@@ -461,7 +455,6 @@ document.getElementById('parse').onclick=()=>{
         if(r.skip){ preview.insertAdjacentHTML('beforeend',`<p style="font-size:12px; color:var(--text-muted); padding-left:8px; border-left:2px solid #475569;">Пропущен: ${htmlEscape(r.label)}</p>`); continue; }
         if(r.error){ preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0;">Ошибка</h3><div class="err">${htmlEscape(r.error)}</div></div>`); continue; }
         
-        // --- ПРОВЕРКА ОТМЕН ДЛЯ ЭТОГО СООБЩЕНИЯ ---
         const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
         let match, numsToCancel = new Set();
         while ((match = otmRegex.exec(r.sec1 || '')) !== null) {
@@ -470,14 +463,12 @@ document.getElementById('parse').onclick=()=>{
         }
         if (numsToCancel.size > 0) {
             numsToCancel.forEach(n => {
-                // Ищем строго по городу и номеру
                 const matches = db.filter(saved => saved.pripNum === n && saved.city === r.city && !saved.isExpired);
                 matches.forEach(m => {
                     if (!pendingCancels.find(x => x.id === m.id)) pendingCancels.push(m);
                 });
             });
         }
-        // ------------------------------------------
 
         const currentIdx = parsed.length;
         parsed.push(r);
@@ -508,7 +499,6 @@ document.getElementById('parse').onclick=()=>{
       
       if(parsed.length > 0) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
       
-      // Показываем окно отмен, если что-то нашли
       if (pendingCancels.length > 0) {
           let html = `<p style="margin-bottom:16px; font-size:14px; color:var(--text-muted);">В тексте найдена отмена. Отметьте, какие ПРИП удалить из базы:</p><div style="max-height: 250px; overflow-y: auto;">`;
           pendingCancels.forEach(r => {
@@ -540,19 +530,16 @@ dlBtn.onclick=()=>{
 
 function saveToTracker(idx) {
     const p = parsed[idx];
-    
-    // Генерируем ID: если год неизвестен, используем текущий
     const year = p.yearSuffix || '_' + new Date().getFullYear(); 
     const id = `${p.city}_${p.pripNum}${year}`; 
     
-    // Проверяем, есть ли уже такой ПРИП (без учета года, если год неизвестен)
     const existing = db.find(x => x.city === p.city && x.pripNum === p.pripNum && (!p.yearSuffix || x.yearSuffix === p.yearSuffix));
     if (existing) { 
-        showModal('Уже существует', `ПРИП ${p.city} ${p.pripNum} уже есть в базе. Удалить старую запись и сохранить новую?`, () => {
+        showCustomModal('Уже существует', `ПРИП ${p.city} ${p.pripNum} уже есть в базе. Удалить старую запись и сохранить новую?`, () => {
             db = db.filter(x => x.id !== existing.id);
             saveDB();
             proceedSave(p, id);
-        });
+        }, 'Заменить');
         return; 
     }
     
@@ -562,7 +549,20 @@ function saveToTracker(idx) {
 function proceedSave(p, id) {
     let expiry = parseExpiryDate(p.cancelStr || p.cancel);
     
-    db.push({ id, city: p.city, pripNum: p.pripNum, yearSuffix: p.yearSuffix, typeLabel: p.typeLabel, cancelStr: p.cancelStr || p.cancel, expiryTimestamp: expiry, isExpired: expiry ? expiry < Date.now() : false, rawData: p });
+    // ДОБАВЛЕНО: Сохраняем area и typeLabel для быстрого доступа в "Мои ПРИП"
+    db.push({ 
+        id, 
+        city: p.city, 
+        pripNum: p.pripNum, 
+        yearSuffix: p.yearSuffix, 
+        typeLabel: p.typeLabel, 
+        area: p.area, 
+        cancelStr: p.cancelStr || p.cancel, 
+        expiryTimestamp: expiry, 
+        isExpired: expiry ? expiry < Date.now() : false, 
+        rawData: p 
+    });
+    
     saveDB(); 
     
     const idx = parsed.findIndex(x => x.city === p.city && x.pripNum === p.pripNum);
@@ -582,12 +582,43 @@ function renderMyPrips() {
         active.sort((a,b) => (a.expiryTimestamp||Infinity) - (b.expiryTimestamp||Infinity)).forEach(p => {
             let dateTxt = p.cancelStr ? `Срок: ${htmlEscape(p.cancelStr)}` : 'Срок не указан';
             if(p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
-            list.insertAdjacentHTML('beforeend', `<div class="saved-card" style="--card-color: var(--success)"><div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div><div class="saved-meta">${dateTxt}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button></div></div>`);
+            
+            // ДОБАВЛЕНО: Вывод характера работ и района
+            const type = p.typeLabel || p.rawData?.typeLabel || 'ПРИП';
+            const area = p.area || p.rawData?.area || '';
+            
+            list.insertAdjacentHTML('beforeend', `
+            <div class="saved-card" style="--card-color: var(--success)">
+                <div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div>
+                <div style="margin-bottom: 4px;"><span class="tag" style="padding:2px 6px; font-size:10px;">${htmlEscape(type)}</span></div>
+                ${area ? `<div class="saved-meta" style="font-size:12px; color:#cbd5e1;">📍 ${htmlEscape(area)}</div>` : ''}
+                <div class="saved-meta" style="margin-top:4px;">${dateTxt}</div>
+                <div class="saved-actions">
+                    <button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button>
+                    <button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button>
+                </div>
+            </div>`);
         });
     }
+    
     if (expired.length > 0) {
         list.insertAdjacentHTML('beforeend', `<div class="section-title" style="display:flex; justify-content:space-between;"><span>Архив (${expired.length})</span><span style="color:var(--danger); cursor:pointer; text-transform:none;" onclick="clearArchive()">Очистить архив</span></div>`);
-        expired.forEach(p => { list.insertAdjacentHTML('beforeend', `<div class="saved-card expired" style="--card-color: #475569"><div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div><div class="saved-meta">Истек: ${htmlEscape(p.cancelStr || '—')}</div><div class="saved-actions"><button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button><button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button></div></div>`); });
+        expired.forEach(p => { 
+            const type = p.typeLabel || p.rawData?.typeLabel || 'ПРИП';
+            const area = p.area || p.rawData?.area || '';
+            
+            list.insertAdjacentHTML('beforeend', `
+            <div class="saved-card expired" style="--card-color: #475569">
+                <div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div>
+                <div style="margin-bottom: 4px;"><span class="tag" style="padding:2px 6px; font-size:10px; background:rgba(255,255,255,0.1); color:#94a3b8;">${htmlEscape(type)}</span></div>
+                ${area ? `<div class="saved-meta" style="font-size:12px; color:#94a3b8;">📍 ${htmlEscape(area)}</div>` : ''}
+                <div class="saved-meta" style="margin-top:4px; color:var(--text-muted);">Истек: ${htmlEscape(p.cancelStr || '—')}</div>
+                <div class="saved-actions">
+                    <button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button>
+                    <button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button>
+                </div>
+            </div>`); 
+        });
     }
 }
 
@@ -638,7 +669,7 @@ function showCustomModal(title, html, onConfirm, yesText = 'Подтвердит
     const modal = document.getElementById('modal'); document.getElementById('modal-title').innerHTML = title; document.getElementById('modal-text').innerHTML = html; modal.style.display = 'flex';
     const btnYes = document.getElementById('modal-btn-yes'), btnNo = document.getElementById('modal-btn-no');
     const newYes = btnYes.cloneNode(true), newNo = btnNo.cloneNode(true); btnYes.parentNode.replaceChild(newYes, btnYes); btnNo.parentNode.replaceChild(newNo, btnNo);
-    newYes.textContent = yesText; newYes.style.background = (yesText === 'Удалить' || yesText === 'Очистить') ? 'var(--danger)' : 'var(--accent)';
+    newYes.textContent = yesText; newYes.style.background = (yesText === 'Удалить' || yesText === 'Очистить' || yesText === 'Заменить') ? 'var(--danger)' : 'var(--accent)';
     newYes.onclick = () => { modal.style.display = 'none'; onConfirm(); }; newNo.onclick = () => { modal.style.display = 'none'; };
 }
 
@@ -648,10 +679,10 @@ function checkReminders() {
     if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${htmlEscape(u.city)} ${htmlEscape(u.pripNum)} (${htmlEscape(u.cancelStr)})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
 }
 
-// Инициализация и запрос постоянного хранилища
+// Инициализация
 if (navigator.storage && navigator.storage.persist) {
     navigator.storage.persist().then(granted => {
-        if (!granted) console.log('Постоянное хранилище не предоставлено. Браузер может удалить базу.');
+        if (!granted) console.log('Постоянное хранилище не предоставлено.');
     });
 }
 
