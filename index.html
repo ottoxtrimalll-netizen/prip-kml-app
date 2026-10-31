@@ -78,7 +78,7 @@ summary.card-header::-webkit-details-marker { display: none; }
 
 .myprips-controls { display: flex; gap: 10px; margin-bottom: 16px; }
 .myprips-controls button { flex: 1; padding: 10px; border-radius: 8px; font-size: 13px; font-weight: 600; background: var(--card-bg); border: 1px solid var(--border); color: var(--text-main); cursor:pointer; }
-.section-title { font-size: 14px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 20px 0 10px; letter-spacing: 1px; }
+.section-title { font-size: 14px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; margin: 20px 0 10px; letter-spacing: 1px; border-bottom: 1px solid var(--border); padding-bottom: 4px;}
 .saved-card { padding: 16px 16px 16px 24px; display: flex; flex-direction: column; gap: 8px; }
 .saved-card.expired { opacity: 0.6; filter: grayscale(0.8); }
 .saved-title { font-size: 1.1em; font-weight: bold; color: var(--accent); display: flex; justify-content: space-between; align-items: center;}
@@ -169,7 +169,7 @@ summary.card-header::-webkit-details-marker { display: none; }
 // ==========================================
 // БАЗА ДАННЫХ (localStorage)
 // ==========================================
-const DB_KEY = 'navahead_db_v2';
+const DB_KEY = 'navahead_db_v3'; // Обновил версию базы, чтобы применились новые ключи с годами
 let db = [];
 
 function loadDB() {
@@ -300,6 +300,36 @@ function chunkToPoints(it){
 
 function parseOne(rawText, yearCache){
   const t0=rawText.replace(/^\uFEFF/,'').replace(/\s+/g,' ').trim(); if(!t0)return null;
+  
+  // Специальный парсер для списков действующих ПРИП
+  const activeListM = t.match(/ДЕЙСТВУЮЩИЕ\s+ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+НА\s+(.+?)\s+ГОД\s+(.+)/i);
+  if (activeListM) {
+      const city = activeListM[1].toUpperCase();
+      const dateRaw = activeListM[2].trim();
+      const listRaw = activeListM[3];
+      
+      // Разбиваем список по годам
+      const parts = listRaw.split(/(\d{4}\s+ГОД)/i);
+      let currentYear = '';
+      let html = '';
+      
+      for (let i = 1; i < parts.length; i += 2) {
+          const yearStr = parts[i];
+          const nums = parts[i+1] || '';
+          const year = yearStr.match(/\d{4}/)[0];
+          html += `<div><b>${year} год:</b> ${nums.trim()}</div>`;
+      }
+      
+      return {
+          isActiveList: true,
+          city: city,
+          typeLabel: 'Справочник действующих ПРИП',
+          area: dateRaw,
+          bodyHtml: html,
+          notes: []
+      };
+  }
+
   const eq=t0.indexOf('='), t=(eq>=0?t0.slice(0,eq):t0).trim(); if(!t)return null; const snippet=t.slice(0,160);
   
   const head = t.match(/ПРИП\s+([А-ЯЁ][А-ЯЁ-]*)\s+(\d+)(?:\/(\d+))?\s+(.+)/i);
@@ -308,7 +338,8 @@ function parseOne(rawText, yearCache){
   const city = head[1].toUpperCase(), pripNum = head[2]; 
   let rest = head[4];
   
-  let yearSuffix = head[3] ? `_${head[3]}` : (yearCache[`${city}_${pripNum}`] ? `_${yearCache[`${city}_${pripNum}`]}` : '');
+  // Если год не указан, берем текущий
+  let yearSuffix = head[3] ? head[3] : (yearCache[`${city}_${pripNum}`] || new Date().getFullYear().toString().slice(-2));
 
   let mapNum = ''; const mapsM = rest.match(/^(?:КАРТ[АЫ]\s+)?((?:\d+\s+)+)/i);
   if (mapsM) { mapNum = mapsM[1].trim().split(/\s+/).join(', '); rest = rest.slice(mapsM[0].length); }
@@ -402,15 +433,16 @@ function buildKML(items, isSK42){
   const allPlacemarks = []; const dLat = isSK42 ? 0.0014 : 0, dLon = isSK42 ? -0.0020 : 0;
   
   items.forEach((p) => {
+    if (p.isActiveList) return; // Пропускаем списки, для них нет KML
     const rows=[`<b>${xmlEscape(p.typeLabel)}</b>`, p.period?`<b>Период:</b> ${xmlEscape(p.period)}`:'', p.hours?`<b>Время:</b> ${xmlEscape(p.hours)}`:'', p.area?`<b>Район:</b> ${xmlEscape(p.area)}`:'', p.mapNum?`<b>Карты:</b> ${xmlEscape(p.mapNum)}`:'', p.cancelStr?`<b>Отмена/Окончание:</b> ${xmlEscape(p.cancelStr)}`:'', isSK42?`<i>Поправка СК-42.</i>`:'', p.notes.length?`<i>${xmlEscape(p.notes.join('; '))}.</i>`:''].filter(Boolean);
     
     if (p.points && p.points.length > 0) {
-        p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
+        p.points.forEach(pt => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}: ${xmlEscape(pt.name + pt.suffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoint</styleUrl><Point><coordinates>${(pt.lon+dLon).toFixed(6)},${(pt.lat+dLat).toFixed(6)},0</coordinates></Point></Placemark>`); });
     } else if (p.zones && p.zones.length > 0) {
-        p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
+        p.zones.forEach(z => { allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)} (Район ${xmlEscape(z.name)})</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>#sPoly</styleUrl>${geomToKml(z.geometry, dLon, dLat)}</Placemark>`); });
     } else if (p.singleGeometry) {
         const styleUrl = p.singleGeometry.kind === 'point' ? '#sPoint' : '#sPoly';
-        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>${styleUrl}</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
+        allPlacemarks.push(`<Placemark><name>ПРИП ${xmlEscape(p.city)} ${xmlEscape(p.pripNum)}/${xmlEscape(p.yearSuffix)}</name><description><![CDATA[${rows.join('<br/>')}]]></description><styleUrl>${styleUrl}</styleUrl>${geomToKml(p.singleGeometry, dLon, dLat)}</Placemark>`);
     }
   });
   
@@ -455,54 +487,65 @@ document.getElementById('parse').onclick=()=>{
         if(r.skip){ preview.insertAdjacentHTML('beforeend',`<p style="font-size:12px; color:var(--text-muted); padding-left:8px; border-left:2px solid #475569;">Пропущен: ${htmlEscape(r.label)}</p>`); continue; }
         if(r.error){ preview.insertAdjacentHTML('beforeend',`<div class="error-card"><h3 style="color:var(--danger); margin-top:0;">Ошибка</h3><div class="err">${htmlEscape(r.error)}</div></div>`); continue; }
         
-        const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
-        let match, numsToCancel = new Set();
-        while ((match = otmRegex.exec(r.sec1 || '')) !== null) {
-            const nums = match[1].match(/\d+/g);
-            if(nums) nums.forEach(n => numsToCancel.add(n));
-        }
-        if (numsToCancel.size > 0) {
-            numsToCancel.forEach(n => {
-                const matches = db.filter(saved => saved.pripNum === n && saved.city === r.city && !saved.isExpired);
-                matches.forEach(m => {
-                    if (!pendingCancels.find(x => x.id === m.id)) pendingCancels.push(m);
-                });
-            });
-        }
-
         const currentIdx = parsed.length;
         parsed.push(r);
 
         let coordsStr = '';
-        if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${htmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
-        else if (r.points && r.points.length > 0) { 
-            const list = r.points.map(pt => `${pt.n}. ${htmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`).join('<br>');
-            coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
+        let cardTitle = '';
+
+        if (r.isActiveList) {
+            cardTitle = `Справочник: ${htmlEscape(r.city)}`;
+            coordsStr = `<div style="font-size:13px; line-height:1.6; margin-top:8px;">${r.bodyHtml}</div>`;
+        } else {
+            cardTitle = `ПРИП ${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}/${htmlEscape(r.yearSuffix)}`;
+            if (r.zones && r.zones.length > 0) { coordsStr = `<p><b>Районов:</b> ${r.zones.length}</p>`; r.zones.forEach(z => { coordsStr += `<div class="zone-box"><b>Район ${htmlEscape(z.name)}</b>${describeGeom(z.geometry)}</div>`; }); }
+            else if (r.points && r.points.length > 0) { 
+                const list = r.points.map(pt => `${pt.n}. ${htmlEscape(pt.name + pt.suffix)} — ${formatDM(pt.lat, true)}, ${formatDM(pt.lon, false)}${pt.nr ? ', НР ' + htmlEscape(pt.nr) : ''}`).join('<br>');
+                coordsStr = `<p><b>Объектов:</b> ${r.points.length}</p><div class="coords-list">${list}</div>`;
+            }
+            else if (r.singleGeometry) { coordsStr = describeGeom(r.singleGeometry); }
+
+            // --- Проверка отмен ---
+            const otmRegex = /ОТМ\s+((?:\d+(?:\/\d+)?\s*)+)/gi;
+            let match, numsToCancel = new Set();
+            while ((match = otmRegex.exec(r.sec1 || '')) !== null) {
+                const nums = match[1].match(/\d+/g);
+                if(nums) nums.forEach(n => numsToCancel.add(n));
+            }
+            if (numsToCancel.size > 0) {
+                numsToCancel.forEach(n => {
+                    const matches = db.filter(saved => saved.pripNum === n && saved.city === r.city && !saved.isExpired);
+                    matches.forEach(m => {
+                        if (!pendingCancels.find(x => x.id === m.id)) pendingCancels.push(m);
+                    });
+                });
+            }
         }
-        else if (r.singleGeometry) { coordsStr = describeGeom(r.singleGeometry); }
 
         preview.insertAdjacentHTML('beforeend',`
-        <details class="card" style="--card-color: ${htmlEscape(document.getElementById('colorFill').value)}">
+        <details class="card" style="--card-color: ${r.isActiveList ? 'var(--warning)' : htmlEscape(document.getElementById('colorFill').value)}">
           <summary class="card-header">
-            <div class="card-title"><span>ПРИП ${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}</span><span style="font-size:12px;">▼</span></div>
+            <div class="card-title"><span>${cardTitle}</span><span style="font-size:12px;">▼</span></div>
             <div class="card-meta"><span class="tag">${htmlEscape(r.typeLabel)}</span>${r.period?`<span>📅 ${htmlEscape(r.period)}</span>`:''}</div>
           </summary>
           <div class="card-body">
             <p><b>Район:</b> ${htmlEscape(r.area||'—')}</p>
-            <p><b>Карты:</b> ${htmlEscape(r.mapNum||'—')}</p>
+            ${!r.isActiveList && r.mapNum ? `<p><b>Карты:</b> ${htmlEscape(r.mapNum)}</p>` : ''}
             ${coordsStr}
-            ${r.cancelStr?`<p><b>Отмена:</b> ${htmlEscape(r.cancelStr)}</p>`:''}
-            <button class="btn-save" id="save-btn-${currentIdx}" onclick="saveToTracker(${currentIdx})">📌 Сохранить в Мои ПРИП</button>
+            ${r.cancelStr?`<p><b>Отмена/Срок:</b> ${htmlEscape(r.cancelStr)}</p>`:''}
+            ${!r.isActiveList ? `<button class="btn-save" id="save-btn-${currentIdx}" onclick="saveToTracker(${currentIdx})">📌 Сохранить в Мои ПРИП</button>` : ''}
           </div>
         </details>`);
       }
       
-      if(parsed.length > 0) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
+      // Кнопка скачивания KML не должна активироваться, если в превью ТОЛЬКО справочник
+      const hasKmlData = parsed.some(x => !x.isActiveList);
+      if(hasKmlData) dlBtn.classList.add('visible'); else dlBtn.classList.remove('visible');
       
       if (pendingCancels.length > 0) {
           let html = `<p style="margin-bottom:16px; font-size:14px; color:var(--text-muted);">В тексте найдена отмена. Отметьте, какие ПРИП удалить из базы:</p><div style="max-height: 250px; overflow-y: auto;">`;
           pendingCancels.forEach(r => {
-              html += `<label class="cancel-item"><input type="checkbox" class="cancel-cb" value="${htmlEscape(r.id)}" checked><span style="font-size:15px;">ПРИП <b>${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}</b></span></label>`;
+              html += `<label class="cancel-item"><input type="checkbox" class="cancel-cb" value="${htmlEscape(r.id)}" checked><span style="font-size:15px;">ПРИП <b>${htmlEscape(r.city)} ${htmlEscape(r.pripNum)}/${htmlEscape(r.yearSuffix||'?')}</b></span></label>`;
           });
           html += `</div>`;
           showCustomModal('Найдена отмена!', html, () => {
@@ -521,21 +564,25 @@ document.getElementById('parse').onclick=()=>{
 };
 
 dlBtn.onclick=()=>{
-  if(!parsed.length)return; vibrate([50,50,50]);
-  const kml=buildKML(parsed, document.getElementById('sk42').checked);
-  const name=`ПРИП - ${parsed[0].city} ${parsed[0].pripNum}${parsed.length>1?' и др':''}.kml`;
+  const kmlData = parsed.filter(x => !x.isActiveList);
+  if(!kmlData.length) return;
+  vibrate([50,50,50]);
+  const kml=buildKML(kmlData, document.getElementById('sk42').checked);
+  const name=`ПРИП - ${kmlData[0].city} ${kmlData[0].pripNum}${kmlData.length>1?' и др':''}.kml`;
   const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download=name; a.click();
   showToast('✅ KML файл сохранен');
 };
 
 function saveToTracker(idx) {
     const p = parsed[idx];
-    const year = p.yearSuffix || '_' + new Date().getFullYear(); 
-    const id = `${p.city}_${p.pripNum}${year}`; 
+    if (p.isActiveList) return;
+
+    const year = p.yearSuffix || new Date().getFullYear().toString().slice(-2); 
+    const id = `${p.city}_${p.pripNum}_${year}`; 
     
-    const existing = db.find(x => x.city === p.city && x.pripNum === p.pripNum && (!p.yearSuffix || x.yearSuffix === p.yearSuffix));
+    const existing = db.find(x => x.city === p.city && x.pripNum === p.pripNum && x.yearSuffix === p.yearSuffix);
     if (existing) { 
-        showCustomModal('Уже существует', `ПРИП ${p.city} ${p.pripNum} уже есть в базе. Удалить старую запись и сохранить новую?`, () => {
+        showCustomModal('Уже существует', `ПРИП ${p.city} ${p.pripNum}/${p.yearSuffix} уже есть в базе. Удалить старую запись и сохранить новую?`, () => {
             db = db.filter(x => x.id !== existing.id);
             saveDB();
             proceedSave(p, id);
@@ -549,7 +596,6 @@ function saveToTracker(idx) {
 function proceedSave(p, id) {
     let expiry = parseExpiryDate(p.cancelStr || p.cancel);
     
-    // ДОБАВЛЕНО: Сохраняем area и typeLabel для быстрого доступа в "Мои ПРИП"
     db.push({ 
         id, 
         city: p.city, 
@@ -565,7 +611,7 @@ function proceedSave(p, id) {
     
     saveDB(); 
     
-    const idx = parsed.findIndex(x => x.city === p.city && x.pripNum === p.pripNum);
+    const idx = parsed.findIndex(x => x.city === p.city && x.pripNum === p.pripNum && x.yearSuffix === p.yearSuffix);
     const btn = document.getElementById(`save-btn-${idx}`);
     if(btn) { btn.textContent = '✅ Сохранено'; btn.classList.add('saved'); btn.disabled = true; }
     showToast('ПРИП добавлен в трекер'); checkReminders();
@@ -574,51 +620,60 @@ function proceedSave(p, id) {
 function renderMyPrips() {
     const list = document.getElementById('myprips-list'); list.innerHTML = ''; const now = Date.now();
     db.forEach(p => { if (p.expiryTimestamp && p.expiryTimestamp < now) p.isExpired = true; else p.isExpired = false; }); saveDB();
-    const active = db.filter(p => !p.isExpired), expired = db.filter(p => p.isExpired);
-    if (active.length === 0 && expired.length === 0) { list.innerHTML = '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">База пуста.</p>'; return; }
     
-    if (active.length > 0) {
-        list.insertAdjacentHTML('beforeend', `<div class="section-title">Активные (${active.length})</div>`);
-        active.sort((a,b) => (a.expiryTimestamp||Infinity) - (b.expiryTimestamp||Infinity)).forEach(p => {
-            let dateTxt = p.cancelStr ? `Срок: ${htmlEscape(p.cancelStr)}` : 'Срок не указан';
-            if(p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
+    const active = db.filter(p => !p.isExpired);
+    const expired = db.filter(p => p.isExpired);
+    
+    if (active.length === 0 && expired.length === 0) { 
+        list.innerHTML = '<p style="text-align:center; color:var(--text-muted); margin-top:40px;">База пуста.</p>'; 
+        return; 
+    }
+
+    function renderGroup(items, isExpiredGroup) {
+        if (items.length === 0) return;
+        
+        // Группируем по годам
+        const byYear = {};
+        items.forEach(p => {
+            const y = p.yearSuffix || 'Неизвестный';
+            if (!byYear[y]) byYear[y] = [];
+            byYear[y].push(p);
+        });
+
+        // Сортируем годы по убыванию (сначала новые)
+        const sortedYears = Object.keys(byYear).sort((a,b) => b.localeCompare(a));
+
+        sortedYears.forEach(year => {
+            list.insertAdjacentHTML('beforeend', `<div class="section-title" style="margin-top:16px;">${isExpiredGroup ? 'Архив' : 'Активные'} — ${htmlEscape(year)} год</div>`);
             
-            // ДОБАВЛЕНО: Вывод характера работ и района
-            const type = p.typeLabel || p.rawData?.typeLabel || 'ПРИП';
-            const area = p.area || p.rawData?.area || '';
-            
-            list.insertAdjacentHTML('beforeend', `
-            <div class="saved-card" style="--card-color: var(--success)">
-                <div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div>
-                <div style="margin-bottom: 4px;"><span class="tag" style="padding:2px 6px; font-size:10px;">${htmlEscape(type)}</span></div>
-                ${area ? `<div class="saved-meta" style="font-size:12px; color:#cbd5e1;">📍 ${htmlEscape(area)}</div>` : ''}
-                <div class="saved-meta" style="margin-top:4px;">${dateTxt}</div>
-                <div class="saved-actions">
-                    <button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button>
-                    <button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button>
-                </div>
-            </div>`);
+            // Сортируем внутри года по номеру ПРИП
+            byYear[year].sort((a,b) => parseInt(a.pripNum) - parseInt(b.pripNum)).forEach(p => {
+                let dateTxt = p.cancelStr ? `Срок: ${htmlEscape(p.cancelStr)}` : 'Срок не указан';
+                if(!isExpiredGroup && p.expiryTimestamp && (p.expiryTimestamp - now) < 86400000) dateTxt = `<span style="color:var(--warning)">⚠️ Истекает сегодня</span>`;
+                
+                const type = p.typeLabel || p.rawData?.typeLabel || 'ПРИП';
+                const area = p.area || p.rawData?.area || '';
+                
+                list.insertAdjacentHTML('beforeend', `
+                <div class="saved-card ${isExpiredGroup ? 'expired' : ''}" style="--card-color: ${isExpiredGroup ? '#475569' : 'var(--success)'}">
+                    <div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}/${htmlEscape(p.yearSuffix||'?')}</div>
+                    <div style="margin-bottom: 4px;"><span class="tag" style="padding:2px 6px; font-size:10px;">${htmlEscape(type)}</span></div>
+                    ${area ? `<div class="saved-meta" style="font-size:12px; color:#cbd5e1;">📍 ${htmlEscape(area)}</div>` : ''}
+                    <div class="saved-meta" style="margin-top:4px;">${dateTxt}</div>
+                    <div class="saved-actions">
+                        <button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button>
+                        <button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button>
+                    </div>
+                </div>`);
+            });
         });
     }
+
+    if (active.length > 0) renderGroup(active, false);
     
     if (expired.length > 0) {
-        list.insertAdjacentHTML('beforeend', `<div class="section-title" style="display:flex; justify-content:space-between;"><span>Архив (${expired.length})</span><span style="color:var(--danger); cursor:pointer; text-transform:none;" onclick="clearArchive()">Очистить архив</span></div>`);
-        expired.forEach(p => { 
-            const type = p.typeLabel || p.rawData?.typeLabel || 'ПРИП';
-            const area = p.area || p.rawData?.area || '';
-            
-            list.insertAdjacentHTML('beforeend', `
-            <div class="saved-card expired" style="--card-color: #475569">
-                <div class="saved-title">ПРИП ${htmlEscape(p.city)} ${htmlEscape(p.pripNum)}</div>
-                <div style="margin-bottom: 4px;"><span class="tag" style="padding:2px 6px; font-size:10px; background:rgba(255,255,255,0.1); color:#94a3b8;">${htmlEscape(type)}</span></div>
-                ${area ? `<div class="saved-meta" style="font-size:12px; color:#94a3b8;">📍 ${htmlEscape(area)}</div>` : ''}
-                <div class="saved-meta" style="margin-top:4px; color:var(--text-muted);">Истек: ${htmlEscape(p.cancelStr || '—')}</div>
-                <div class="saved-actions">
-                    <button class="btn-dl" onclick="downloadSaved('${htmlEscape(p.id)}')">💾 KML</button>
-                    <button class="btn-del" onclick="deleteSaved('${htmlEscape(p.id)}')">🗑 Удалить</button>
-                </div>
-            </div>`); 
-        });
+        list.insertAdjacentHTML('beforeend', `<div style="text-align:right; margin-top:24px;"><span style="color:var(--danger); font-size:13px; cursor:pointer; font-weight:600;" onclick="clearArchive()">Очистить весь архив</span></div>`);
+        renderGroup(expired, true);
     }
 }
 
@@ -637,7 +692,7 @@ function clearArchive() {
 function downloadSaved(id) { 
     const p = db.find(x => x.id === id); if(!p) return;
     const kml = buildKML([p.rawData], document.getElementById('sk42').checked);
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download = `ПРИП - ${p.city} ${p.pripNum}.kml`; a.click(); showToast('Файл сохранен'); 
+    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([kml],{type:'application/vnd.google-earth.kml+xml'})); a.download = `ПРИП - ${p.city} ${p.pripNum}_${p.yearSuffix||''}.kml`; a.click(); showToast('Файл сохранен'); 
 }
 
 // Бэкап
@@ -676,7 +731,7 @@ function showCustomModal(title, html, onConfirm, yesText = 'Подтвердит
 function checkReminders() {
     const now = Date.now(), banner = document.getElementById('warning-banner'); let urgent = [];
     db.forEach(p => { if (p.expiryTimestamp && p.expiryTimestamp > now && (p.expiryTimestamp - now) < 86400000) urgent.push(p); });
-    if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${htmlEscape(u.city)} ${htmlEscape(u.pripNum)} (${htmlEscape(u.cancelStr)})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
+    if (urgent.length > 0) { let msg = `⚠️ <b>Внимание!</b> Сегодня истекает:<br>`; urgent.forEach(u => msg += `— ПРИП ${htmlEscape(u.city)} ${htmlEscape(u.pripNum)}/${htmlEscape(u.yearSuffix||'?')} (${htmlEscape(u.cancelStr)})<br>`); msg += `<br>Не забудьте удалить из навигатора!`; banner.innerHTML = msg; banner.style.display = 'block'; } else { banner.style.display = 'none'; }
 }
 
 // Инициализация
