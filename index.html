@@ -310,10 +310,12 @@ function parseOne(rawText){
   
   let areaRaw = startM ? rest.slice(0, startM.index).trim() : '';
   
-  // Если нет секции "1.", берем текст до координат как название объекта
   if (!areaRaw) {
       const firstCoordIdx = rest.search(/(?<![\d.,])\d{1,3}\s*-\s*\d{1,2}/);
-      areaRaw = firstCoordIdx > 0 ? rest.slice(0, firstCoordIdx).trim() : '';
+      if (firstCoordIdx > 0) {
+          areaRaw = rest.slice(0, firstCoordIdx).trim();
+          areaRaw = areaRaw.replace(/[\sВС]+$/gi, ''); // Очистка от предлога "В" в конце
+      }
   }
 
   const after1 = startM ? rest.slice(startM.index + startM[0].length) : rest;
